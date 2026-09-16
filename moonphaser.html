@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phases of the Moon — Interactive Model</title>
+<style>
+  :root{
+    --bg:#060a14;
+    --panel:rgba(13,18,32,0.82);
+    --panel-border:rgba(255,255,255,0.09);
+    --text:#e8ecf4;
+    --text-dim:#8b93a7;
+    --gold:#ffc857;
+    --cyan:#4cc9f0;
+    --violet:#b892ff;
+    --rose:#ef476f;
+    --slate:#7c8aa3;
+    --track:#1b2333;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);overflow:hidden;
+    font-family:'Space Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);}
+  #canvas-wrap{position:fixed;inset:0;}
+  canvas.main-canvas{display:block;width:100%;height:100%;cursor:grab;}
+  canvas.main-canvas.dragging{cursor:grabbing;}
+  canvas.main-canvas.moving{cursor:pointer;}
+
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:22px 26px;pointer-events:none;z-index:5;}
+  .title-block h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.01em;}
+  .title-block p{margin:4px 0 0;font-size:13px;color:var(--text-dim);max-width:400px;line-height:1.5;}
+  .instructions{text-align:right;font-size:12.5px;color:var(--text-dim);line-height:1.7;max-width:250px;}
+  .instructions b{color:var(--text);font-weight:500;}
+
+  .panel{position:fixed;left:22px;bottom:22px;width:340px;max-width:calc(100vw - 44px);
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;
+    padding:18px 20px 16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    z-index:5;box-shadow:0 20px 50px rgba(0,0,0,0.35);max-height:calc(100vh - 44px);overflow-y:auto;}
+
+  .earthview-card{display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--panel-border);}
+  .earthview-card canvas{border-radius:50%;background:#0a0f1c;flex-shrink:0;}
+  .earthview-text{flex:1;}
+  .earthview-text .phasename{font-size:16px;font-weight:700;color:var(--gold);margin-bottom:2px;}
+  .earthview-text .sub{font-size:12px;color:var(--text-dim);line-height:1.6;}
+  .earthview-text .sub strong{color:var(--text);}
+
+  .section-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin:0 0 10px;font-weight:700;}
+
+  .row{margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  .row-label{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--text-dim);margin-bottom:6px;}
+  .row-label .value{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--track);border-radius:2px;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;box-shadow:0 0 0 3px rgba(76,201,240,0.15);}
+  input[type=range]#earthSlider::-webkit-slider-thumb{background:var(--rose);box-shadow:0 0 0 3px rgba(239,71,111,0.15);}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;}
+  input[type=range]#earthSlider::-moz-range-thumb{background:var(--rose);}
+
+  .btn-row{display:flex;gap:8px;margin-top:2px;}
+  button{font-family:inherit;font-size:12.5px;font-weight:600;background:#131a2c;color:var(--text);border:1px solid var(--panel-border);border-radius:8px;padding:8px 12px;cursor:pointer;transition:border-color .15s;}
+  button:hover{border-color:var(--cyan);}
+  button.primary{background:var(--cyan);color:#04121b;border-color:var(--cyan);}
+  button.primary:hover{opacity:.9;}
+  button.earth-btn.active{background:var(--rose);color:#2a0510;border-color:var(--rose);}
+  button.moon-btn.active{background:var(--violet);color:#1c0f33;border-color:var(--violet);}
+
+  .note{font-size:11.5px;color:var(--text-dim);line-height:1.5;margin-top:8px;}
+
+  .divider{height:1px;background:var(--panel-border);margin:14px 0;}
+  .legend{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-dim);}
+  .legend .item{display:flex;align-items:center;}
+
+  .label-layer{position:fixed;inset:0;pointer-events:none;z-index:3;}
+  .marker-label{position:absolute;transform:translate(-50%,-150%);font-size:11px;font-weight:600;white-space:nowrap;padding:2px 7px;border-radius:6px;background:rgba(6,10,20,0.6);border:1px solid var(--panel-border);letter-spacing:.01em;}
+  .marker-label.body{font-size:12.5px;}
+  .marker-label.sun{color:var(--gold);}
+  .marker-label.earth{color:#bcd0e6;}
+  .marker-label.moon{color:var(--text);}
+  .marker-label.dot{font-size:10.5px;}
+  .marker-label.dot.rose{color:var(--rose);}
+  .marker-label.dot.cyan{color:var(--cyan);}
+  .moon-hint{position:absolute;transform:translate(-50%,-160%);font-size:11px;color:var(--text-dim);white-space:nowrap;font-weight:600;transition:opacity .4s;}
+
+  .horizon-panel{
+    position:fixed;right:22px;bottom:22px;width:290px;max-width:calc(100vw - 44px);
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;
+    padding:14px 16px 16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    z-index:5;box-shadow:0 20px 50px rgba(0,0,0,0.35);
+  }
+  .horizon-panel h2{margin:0 0 2px;font-size:13px;font-weight:700;}
+  .horizon-panel .clock{font-size:12.5px;color:var(--text-dim);margin-bottom:8px;}
+  .horizon-panel .clock strong{color:var(--text);font-variant-numeric:tabular-nums;}
+  .horizon-panel canvas{width:100%;height:auto;border-radius:8px;display:block;}
+  .horizon-panel .caption{font-size:10.5px;color:var(--text-dim);margin-top:8px;line-height:1.5;}
+
+  @media (max-width:900px){
+    .horizon-panel{position:fixed;left:22px;right:auto;bottom:auto;top:96px;width:250px;}
+  }
+  @media (max-width:640px){
+    .instructions{display:none;}
+    .panel{left:12px;right:12px;bottom:12px;width:auto;}
+    .title-block p{max-width:220px;}
+    .horizon-panel{left:12px;right:12px;top:88px;width:auto;}
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div class="label-layer" id="labelLayer"></div>
+
+<div class="topbar">
+  <div class="title-block">
+    <h1>Phases of the Moon</h1>
+    <p>The Moon always has one lit half and one dark half — phases are just how much of that lit half faces Earth, depending on where the Moon sits in its orbit.</p>
+  </div>
+  <div class="instructions">
+    <div><b>Drag</b> the Moon around its orbit</div>
+    <div><b>Drag</b> empty space to rotate the view</div>
+    <div><b>Scroll</b> to zoom</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="earthview-card">
+    <canvas id="earthViewCanvas" width="96" height="96"></canvas>
+    <div class="earthview-text">
+      <div class="phasename" id="phaseName">New Moon</div>
+      <div class="sub">
+        Day <strong id="dayNum">0.0</strong> of 29.5 &middot; <strong id="illumPct">0%</strong> lit<br>
+        Rises around <strong id="riseNote">sunrise</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row" style="margin-bottom:16px;">
+    <button class="primary" id="playAllBtn" style="flex:1;">▶ Play All</button>
+  </div>
+
+  <p class="section-title">Orbit</p>
+  <div class="row">
+    <div class="row-label">
+      <span><span class="swatch" style="background:var(--cyan)"></span>Moon's position in orbit</span>
+      <span class="value" id="lamVal">0°</span>
+    </div>
+    <input type="range" id="lamSlider" min="0" max="360" step="0.5" value="0" aria-label="Moon's orbital position, degrees">
+  </div>
+  <div class="btn-row">
+    <button class="primary" id="playBtn">▶ Play month</button>
+    <button id="resetBtn">Reset all</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <p class="section-title">Earth</p>
+  <div class="row">
+    <div class="row-label">
+      <span><span class="swatch" style="background:var(--rose)"></span>Earth's rotation (time of day)</span>
+      <span class="value" id="earthVal">0° · 12:00 PM</span>
+    </div>
+    <input type="range" id="earthSlider" min="0" max="360" step="0.5" value="0" aria-label="Earth's rotation angle">
+  </div>
+  <div class="btn-row">
+    <button class="earth-btn" id="earthPlayBtn">▶ Spin Earth</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <p class="section-title">Moon's axial spin</p>
+  <div class="row">
+    <div class="row-label">
+      <span><span class="swatch" style="background:var(--violet)"></span>Moon's rotation on its own axis</span>
+      <span class="value" id="moonSpinVal">0°</span>
+    </div>
+    <input type="range" id="moonSpinSlider" min="0" max="360" step="0.5" value="0" aria-label="Moon's axial rotation">
+  </div>
+  <div class="btn-row">
+    <button class="moon-btn" id="moonPlayBtn">▶ Spin Moon</button>
+  </div>
+  <p class="note">In reality the Moon rotates once per orbit, so the same face always points at Earth — its rotation and orbit are locked together. Here the spin is a free, separate control: watch the cyan surface marker turn away from Earth as you spin the Moon, showing what we'd see if that locking didn't hold. Note both "Play month" and "Spin Moon" advance at the same rate — press <strong>Play All</strong> to see them stay in sync, just like the real, tidally-locked Moon.</p>
+
+  <div class="divider"></div>
+
+  <div class="row">
+    <div class="row-label"><span>Speed multiplier</span><span class="value" id="speedVal">1×</span></div>
+    <input type="range" id="speedSlider" min="1" max="30" step="1" value="1" aria-label="Speed multiplier">
+  </div>
+  <p class="note">Speeds are calibrated to real time: Earth turns once every 24 hours, and the Moon orbits (and spins) once every 27.3 days. At 1×, that's about 6 seconds per Earth day and ~2.7 minutes per Moon orbit — speed it up to watch more cycles pass.</p>
+
+  <div class="divider"></div>
+
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:var(--slate)"></span>New Moon</div>
+    <div class="item"><span class="swatch" style="background:var(--cyan)"></span>First &amp; Third Quarter</div>
+    <div class="item"><span class="swatch" style="background:var(--gold)"></span>Full Moon</div>
+    <div class="item"><span class="swatch" style="background:var(--violet)"></span>Crescent &amp; Gibbous</div>
+    <div class="item"><span class="swatch" style="background:var(--rose)"></span>Observer point on Earth's equator</div>
+  </div>
+</div>
+
+<div class="horizon-panel">
+  <h2>Local Sky View</h2>
+  <div class="clock">Time of day: <strong id="clockReadout">12:00 PM</strong></div>
+  <canvas id="horizonCanvas" width="520" height="300"></canvas>
+  <div class="caption">Hypothetical equinox, for simplicity: Sun rises 6:00 AM due east, sets 6:00 PM due west. The Moon's rise time shifts with its phase.</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // Setup
+  // ---------------------------------------------------------------
+  const wrap = document.getElementById('canvas-wrap');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 3000);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x060a14, 1);
+  renderer.domElement.classList.add('main-canvas');
+  wrap.appendChild(renderer.domElement);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---------------------------------------------------------------
+  // Starfield
+  // ---------------------------------------------------------------
+  (function starfield(){
+    const count = 1500;
+    const positions = new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const r = 400 + Math.random()*250;
+      const theta = Math.random()*Math.PI*2;
+      const phi = Math.acos(2*Math.random()-1);
+      positions[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+      positions[i*3+1] = r*Math.cos(phi);
+      positions[i*3+2] = r*Math.sin(phi)*Math.sin(theta);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    scene.add(new THREE.Points(geo, new THREE.PointsMaterial({color:0xffffff, size:1.15, sizeAttenuation:true})));
+  })();
+
+  // ---------------------------------------------------------------
+  // Textures
+  // ---------------------------------------------------------------
+  function earthTexture(){
+    const c = document.createElement('canvas'); c.width=512;c.height=256;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createLinearGradient(0,0,0,256);
+    grad.addColorStop(0,'#0b3d66'); grad.addColorStop(0.5,'#146b9c'); grad.addColorStop(1,'#0b3d66');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,512,256);
+    ctx.fillStyle = '#3f7d4a';
+    function blob(x,y,w,h,rot){ ctx.save(); ctx.translate(x,y); ctx.rotate(rot); ctx.beginPath(); ctx.ellipse(0,0,w,h,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+    blob(90,90,55,30,0.3); blob(140,125,38,24,-0.2); blob(265,80,72,35,0.1);
+    blob(305,145,45,20,0.4); blob(385,70,50,28,-0.3); blob(425,150,34,18,0.2);
+    ctx.fillStyle = '#eef3f7'; ctx.fillRect(0,0,512,13); ctx.fillRect(0,243,512,13);
+    return new THREE.CanvasTexture(c);
+  }
+  function moonTexture(){
+    const c = document.createElement('canvas'); c.width=512;c.height=256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#b7b3ab'; ctx.fillRect(0,0,512,256);
+    ctx.fillStyle = 'rgba(130,126,118,0.55)';
+    const craters = [[70,60,26],[150,110,16],[230,50,20],[300,140,30],[380,90,14],[440,180,18],[100,190,20],[260,200,12],[40,140,10],[470,60,10]];
+    craters.forEach(([x,y,r])=>{ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); });
+    ctx.fillStyle = 'rgba(90,86,80,0.4)';
+    craters.forEach(([x,y,r])=>{ ctx.beginPath(); ctx.arc(x-r*0.25,y-r*0.25,r*0.55,0,Math.PI*2); ctx.fill(); });
+    return new THREE.CanvasTexture(c);
+  }
+
+  // ---------------------------------------------------------------
+  // Sun (fixed, distant, provides parallel-ish light)
+  // ---------------------------------------------------------------
+  const SUN_DIST = 55;
+  const sunPos = new THREE.Vector3(SUN_DIST, 0, 0);
+  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(3.2, 24, 24), new THREE.MeshBasicMaterial({color:0xffc857}));
+  sunMesh.position.copy(sunPos);
+  scene.add(sunMesh);
+  (function sunGlow(){
+    const c = document.createElement('canvas'); c.width=256;c.height=256;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(128,128,0,128,128,128);
+    g.addColorStop(0,'rgba(255,200,87,0.6)'); g.addColorStop(1,'rgba(255,200,87,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,256,256);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false}));
+    spr.scale.set(16,16,1); spr.position.copy(sunPos);
+    scene.add(spr);
+  })();
+  const labelLayer = document.getElementById('labelLayer');
+  const sunLabelDiv = document.createElement('div');
+  sunLabelDiv.className = 'marker-label sun body'; sunLabelDiv.textContent = 'Sun (light arrives essentially parallel)';
+  labelLayer.appendChild(sunLabelDiv);
+
+  const sunLight = new THREE.DirectionalLight(0xfff3d6, 1.3);
+  sunLight.position.copy(sunPos);
+  sunLight.target.position.set(0,0,0);
+  scene.add(sunLight); scene.add(sunLight.target);
+  scene.add(new THREE.AmbientLight(0x232c42, 0.55));
+
+  // ---------------------------------------------------------------
+  // Earth (fixed at center) — now with a spin group + equator dot
+  // ---------------------------------------------------------------
+  const EARTH_R = 3.2, MOON_R = 1.0, ORBIT_R = 13;
+
+  const earthSpinGroup = new THREE.Object3D(); // rotates for Earth's daily spin
+  scene.add(earthSpinGroup);
+
+  const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R, 40, 40), new THREE.MeshPhongMaterial({map:earthTexture(), shininess:6}));
+  earthSpinGroup.add(earthMesh);
+
+  const equatorDot = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), new THREE.MeshBasicMaterial({color:0xef476f}));
+  equatorDot.position.set(EARTH_R*1.04, 0, 0);
+  earthSpinGroup.add(equatorDot);
+
+  const earthLabelDiv = document.createElement('div');
+  earthLabelDiv.className = 'marker-label earth body'; earthLabelDiv.textContent = 'Earth';
+  labelLayer.appendChild(earthLabelDiv);
+  const equatorDotLabelDiv = document.createElement('div');
+  equatorDotLabelDiv.className = 'marker-label dot rose'; equatorDotLabelDiv.textContent = 'Observer';
+  labelLayer.appendChild(equatorDotLabelDiv);
+
+  // orbit path
+  const orbitRing = new THREE.Mesh(new THREE.RingGeometry(ORBIT_R-0.04, ORBIT_R+0.04, 128), new THREE.MeshBasicMaterial({color:0x4cc9f0, side:THREE.DoubleSide, transparent:true, opacity:0.35}));
+  orbitRing.rotation.x = Math.PI/2;
+  scene.add(orbitRing);
+
+  // ---------------------------------------------------------------
+  // Moon: pivot (orbital position) -> spinGroup (cosmetic axial spin) + faceDot (always Earth-facing)
+  // ---------------------------------------------------------------
+  const moonPivot = new THREE.Object3D();
+  scene.add(moonPivot);
+
+  const moonSpinGroup = new THREE.Object3D();
+  moonPivot.add(moonSpinGroup);
+
+  const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(MOON_R, 32, 32), new THREE.MeshPhongMaterial({map:moonTexture(), shininess:2}));
+  moonSpinGroup.add(moonMesh);
+
+  const moonFaceDot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 14), new THREE.MeshBasicMaterial({color:0x4cc9f0}));
+  moonFaceDot.position.set(-MOON_R*1.15, 0, 0); // fixed point on the Moon's own surface
+  moonSpinGroup.add(moonFaceDot); // rotates together with the Moon's own axial spin
+
+  const moonLabelDiv = document.createElement('div');
+  moonLabelDiv.className = 'marker-label moon body'; moonLabelDiv.textContent = 'Moon';
+  labelLayer.appendChild(moonLabelDiv);
+  const moonHintDiv = document.createElement('div');
+  moonHintDiv.className = 'moon-hint'; moonHintDiv.textContent = 'drag around orbit';
+  labelLayer.appendChild(moonHintDiv);
+  const moonFaceDotLabelDiv = document.createElement('div');
+  moonFaceDotLabelDiv.className = 'marker-label dot cyan'; moonFaceDotLabelDiv.textContent = 'Surface marker';
+  labelLayer.appendChild(moonFaceDotLabelDiv);
+
+  // Earth-Moon line
+  const connGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(ORBIT_R,0,0)]);
+  const connLine = new THREE.Line(connGeo, new THREE.LineDashedMaterial({color:0x8b93a7, dashSize:0.6, gapSize:0.4, transparent:true, opacity:0.3}));
+  scene.add(connLine);
+
+  // ---------------------------------------------------------------
+  // 8 phase markers, fixed around the orbit
+  // ---------------------------------------------------------------
+  const phaseDefs = [
+    {deg:0,   name:'New Moon',         color:0x7c8aa3, rise:'sunrise'},
+    {deg:45,  name:'Waxing Crescent',  color:0xb892ff, rise:'mid-morning'},
+    {deg:90,  name:'First Quarter',    color:0x4cc9f0, rise:'noon'},
+    {deg:135, name:'Waxing Gibbous',   color:0xb892ff, rise:'afternoon'},
+    {deg:180, name:'Full Moon',        color:0xffc857, rise:'sunset'},
+    {deg:225, name:'Waning Gibbous',   color:0xb892ff, rise:'evening'},
+    {deg:270, name:'Third Quarter',    color:0x4cc9f0, rise:'midnight'},
+    {deg:315, name:'Waning Crescent',  color:0xb892ff, rise:'early morning'}
+  ];
+  const phaseMarkers = phaseDefs.map(p => {
+    const rad = THREE.MathUtils.degToRad(p.deg);
+    const pos = new THREE.Vector3(ORBIT_R*Math.cos(rad), 0, -ORBIT_R*Math.sin(rad));
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22,12,12), new THREE.MeshBasicMaterial({color:p.color}));
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    const div = document.createElement('div');
+    div.className = 'marker-label';
+    div.style.color = '#' + p.color.toString(16).padStart(6,'0');
+    div.textContent = p.name;
+    labelLayer.appendChild(div);
+    return {pos, div};
+  });
+
+  // ---------------------------------------------------------------
+  // Phase math (verified numerically: area under this path matches
+  // (1-cos(lambda))/2 exactly at all 8 named phases)
+  // ---------------------------------------------------------------
+  function illumFraction(lambdaDeg){
+    const rad = THREE.MathUtils.degToRad(lambdaDeg);
+    return (1 - Math.cos(rad)) / 2;
+  }
+  function moonPosition(lambdaDeg){
+    const rad = THREE.MathUtils.degToRad(lambdaDeg);
+    return new THREE.Vector3(ORBIT_R*Math.cos(rad), 0, -ORBIT_R*Math.sin(rad));
+  }
+  function drawPhaseDiskOnCtx(ctx, cx, cy, R, lambdaDeg, darkColor, litColor){
+    const lam = ((lambdaDeg % 360) + 360) % 360;
+    const rad = THREE.MathUtils.degToRad(lam);
+    const cosL = Math.cos(rad);
+    const rx = Math.abs(R * cosL);
+    const gibbous = cosL < 0;
+    const waxing = lam < 180;
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+    ctx.fillStyle = darkColor; ctx.fill();
+    ctx.clip();
+
+    if(!waxing){ ctx.translate(cx,0); ctx.scale(-1,1); ctx.translate(-cx,0); }
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, -Math.PI/2, Math.PI/2, false);
+    if(gibbous){
+      ctx.ellipse(cx, cy, rx, R, 0, Math.PI/2, -Math.PI/2, false);
+    } else {
+      ctx.ellipse(cx, cy, rx, R, 0, Math.PI/2, -Math.PI/2, true);
+    }
+    ctx.closePath();
+    ctx.fillStyle = litColor;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  const evCanvas = document.getElementById('earthViewCanvas');
+  const evCtx = evCanvas.getContext('2d');
+  function drawEarthViewDisk(lambdaDeg){
+    const w=evCanvas.width, h=evCanvas.height, cx=w/2, cy=h/2, R=w/2-4;
+    evCtx.clearRect(0,0,w,h);
+    drawPhaseDiskOnCtx(evCtx, cx, cy, R, lambdaDeg, '#252b3d', '#f2ecd9');
+    evCtx.beginPath(); evCtx.arc(cx,cy,R,0,Math.PI*2);
+    evCtx.strokeStyle='rgba(255,255,255,0.12)'; evCtx.lineWidth=1.5; evCtx.stroke();
+  }
+
+  // ---------------------------------------------------------------
+  // Horizon / local-sky panel (simplified hypothetical equinox:
+  // Sun rises 6:00 AM due east, sets 6:00 PM due west)
+  // ---------------------------------------------------------------
+  const hzCanvas = document.getElementById('horizonCanvas');
+  const hzCtx = hzCanvas.getContext('2d');
+
+  function sunAltAz(t){
+    if(t < 6 || t > 18) return {alt:-1, az:180};
+    const frac = (t-6)/12; // 0..1
+    return {alt: Math.sin(Math.PI*frac), az: 90 + frac*180};
+  }
+  function bodyScreenXY(altAz, W, H, groundY, topY){
+    const x = ((altAz.az - 90)/180) * W;
+    const y = groundY - Math.max(0, altAz.alt) * (groundY - topY);
+    return {x, y};
+  }
+  function skyColors(t){
+    // returns [topColor, bottomColor] for the sky gradient at time t
+    function lerp(a,b,f){ return Math.round(a+(b-a)*f); }
+    function mix(c1,c2,f){ return 'rgb(' + lerp(c1[0],c2[0],f) + ',' + lerp(c1[1],c2[1],f) + ',' + lerp(c1[2],c2[2],f) + ')'; }
+    const night = [[8,10,22],[14,18,34]];
+    const dawn  = [[255,183,120],[120,140,190]];
+    const day   = [[110,180,240],[190,225,250]];
+    const dusk  = [[255,140,110],[90,70,120]];
+    let top, bottom;
+    if(t>=5 && t<7){ const f=(t-5)/2; top=mix(night[0],dawn[0],f); bottom=mix(night[1],dawn[1],f); }
+    else if(t>=7 && t<11){ const f=(t-7)/4; top=mix(dawn[0],day[0],f); bottom=mix(dawn[1],day[1],f); }
+    else if(t>=11 && t<15){ top=`rgb(${day[0].join(',')})`; bottom=`rgb(${day[1].join(',')})`; }
+    else if(t>=15 && t<17){ const f=(t-15)/2; top=mix(day[0],dusk[0],f); bottom=mix(day[1],dusk[1],f); }
+    else if(t>=17 && t<19){ const f=(t-17)/2; top=mix(dusk[0],night[0],f); bottom=mix(dusk[1],night[1],f); }
+    else { top=`rgb(${night[0].join(',')})`; bottom=`rgb(${night[1].join(',')})`; }
+    return [top, bottom];
+  }
+
+  function drawHorizonPanel(t, lambdaDeg){
+    const W = hzCanvas.width, H = hzCanvas.height;
+    const groundY = H*0.86, topY = H*0.06;
+    const [topC, botC] = skyColors(t);
+    const grad = hzCtx.createLinearGradient(0,0,0,groundY);
+    grad.addColorStop(0, topC); grad.addColorStop(1, botC);
+    hzCtx.fillStyle = grad; hzCtx.fillRect(0,0,W,groundY);
+    hzCtx.fillStyle = '#141b2c'; hzCtx.fillRect(0,groundY,W,H-groundY);
+    hzCtx.strokeStyle = 'rgba(255,255,255,0.25)'; hzCtx.beginPath();
+    hzCtx.moveTo(0,groundY); hzCtx.lineTo(W,groundY); hzCtx.stroke();
+
+    hzCtx.fillStyle = 'rgba(232,236,244,0.55)';
+    hzCtx.font = '600 13px sans-serif';
+    hzCtx.fillText('E', 8, groundY-8);
+    hzCtx.fillText('W', W-18, groundY-8);
+    hzCtx.fillText('S', W/2-4, topY+14);
+
+    // Sun
+    const sAltAz = sunAltAz(t);
+    if(sAltAz.alt > 0){
+      const p = bodyScreenXY(sAltAz, W, H, groundY, topY);
+      const g = hzCtx.createRadialGradient(p.x,p.y,0,p.x,p.y,26);
+      g.addColorStop(0,'rgba(255,200,87,0.55)'); g.addColorStop(1,'rgba(255,200,87,0)');
+      hzCtx.fillStyle=g; hzCtx.beginPath(); hzCtx.arc(p.x,p.y,26,0,Math.PI*2); hzCtx.fill();
+      hzCtx.fillStyle = '#ffc857'; hzCtx.beginPath(); hzCtx.arc(p.x,p.y,10,0,Math.PI*2); hzCtx.fill();
+    }
+
+    // Moon: rise time shifts with phase (New=6am, First Q=noon, Full=6pm, Third Q=midnight)
+    const moonRiseT = (6 + lambdaDeg/360*24) % 24;
+    let tSinceRise = t - moonRiseT; if(tSinceRise < 0) tSinceRise += 24;
+    if(tSinceRise <= 12){
+      const frac = tSinceRise/12;
+      const mAlt = Math.sin(Math.PI*frac);
+      const mAz = 90 + frac*180;
+      const p = bodyScreenXY({alt:mAlt, az:mAz}, W, H, groundY, topY);
+      drawPhaseDiskOnCtx(hzCtx, p.x, p.y, 13, lambdaDeg, '#2a3040', '#eef1f6');
+      hzCtx.strokeStyle='rgba(255,255,255,0.35)'; hzCtx.lineWidth=1; hzCtx.beginPath(); hzCtx.arc(p.x,p.y,13,0,Math.PI*2); hzCtx.stroke();
+    }
+  }
+
+  function fmtClock(hDecimal){
+    let h = ((hDecimal%24)+24)%24;
+    let hh = Math.floor(h), mm = Math.round((h-hh)*60);
+    if(mm===60){mm=0; hh=(hh+1)%24;}
+    const ampm = hh<12 ? 'AM':'PM';
+    let hh12 = hh%12; if(hh12===0) hh12=12;
+    return hh12+':'+String(mm).padStart(2,'0')+' '+ampm;
+  }
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  // Rates are calibrated to real time: at speed=1x, one simulated
+  // "day" (Earth's full rotation) takes SECONDS_PER_DAY seconds of
+  // wall-clock time. The Moon's orbit and axial spin both complete
+  // in 27.3 real days (a true sidereal month, keeping them locked
+  // together), so its rate is Earth's rate divided by 27.3.
+  const SECONDS_PER_DAY = 6;
+  const EARTH_RATE = 360 / SECONDS_PER_DAY;              // deg/sec at 1x (=60)
+  const MOON_RATE  = 360 / (27.3 * SECONDS_PER_DAY);     // deg/sec at 1x (≈2.198)
+
+  const state = {
+    lambda: 0, playing: false,
+    earthRot: 0, earthPlaying: false,
+    moonSpin: 0, moonPlaying: false,
+    speed: 1.0
+  };
+
+  const lamSlider = document.getElementById('lamSlider');
+  const lamVal = document.getElementById('lamVal');
+  const earthSlider = document.getElementById('earthSlider');
+  const earthVal = document.getElementById('earthVal');
+  const moonSpinSlider = document.getElementById('moonSpinSlider');
+  const moonSpinVal = document.getElementById('moonSpinVal');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedVal = document.getElementById('speedVal');
+  const playBtn = document.getElementById('playBtn');
+  const earthPlayBtn = document.getElementById('earthPlayBtn');
+  const moonPlayBtn = document.getElementById('moonPlayBtn');
+  const playAllBtn = document.getElementById('playAllBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const phaseNameEl = document.getElementById('phaseName');
+  const dayNumEl = document.getElementById('dayNum');
+  const illumPctEl = document.getElementById('illumPct');
+  const riseNoteEl = document.getElementById('riseNote');
+  const clockReadoutEl = document.getElementById('clockReadout');
+
+  function circDist(a,b){ let d = Math.abs(a-b) % 360; return d>180 ? 360-d : d; }
+
+  function updatePlayAllLabel(){
+    const allPlaying = state.playing && state.earthPlaying && state.moonPlaying;
+    playAllBtn.textContent = allPlaying ? '❚❚ Pause All' : '▶ Play All';
+    playAllBtn.classList.toggle('active', allPlaying);
+  }
+
+  function localTimeFromEarthRot(earthRotDeg){
+    return (12 + earthRotDeg/360*24) % 24;
+  }
+
+  function updateAll(){
+    // Moon orbital position
+    const pos = moonPosition(state.lambda);
+    moonPivot.position.copy(pos);
+
+    // cosmetic spins (the surface marker dot is a child of moonSpinGroup,
+    // so it rotates together with the Moon automatically)
+    earthSpinGroup.rotation.y = THREE.MathUtils.degToRad(state.earthRot);
+    moonSpinGroup.rotation.y = THREE.MathUtils.degToRad(state.moonSpin);
+
+    // Earth-Moon connector line
+    const posAttr = connLine.geometry.attributes.position;
+    posAttr.setXYZ(1, pos.x, pos.y, pos.z);
+    posAttr.needsUpdate = true;
+    connLine.computeLineDistances();
+
+    drawEarthViewDisk(state.lambda);
+
+    const t = localTimeFromEarthRot(state.earthRot);
+    drawHorizonPanel(t, state.lambda);
+    clockReadoutEl.textContent = fmtClock(t);
+
+    // phase name / rise-time lookup
+    const angles = [0,45,90,135,180,225,270,315,360];
+    const names = phaseDefs.map(p=>p.name).concat([phaseDefs[0].name]);
+    const rises = phaseDefs.map(p=>p.rise).concat([phaseDefs[0].rise]);
+    let exactIdx = -1;
+    for(let i=0;i<8;i++){ if(circDist(state.lambda, angles[i]) < 2.5){ exactIdx = i; break; } }
+    if(exactIdx>=0){
+      phaseNameEl.textContent = names[exactIdx];
+      riseNoteEl.textContent = rises[exactIdx];
+    } else {
+      let seg=0;
+      for(let i=0;i<8;i++){ if(state.lambda>=angles[i] && state.lambda<angles[i+1]){ seg=i; break; } }
+      phaseNameEl.textContent = names[seg] + ' → ' + names[seg+1];
+      riseNoteEl.textContent = rises[seg];
+    }
+    dayNumEl.textContent = (state.lambda/360*29.5).toFixed(1);
+    illumPctEl.textContent = Math.round(illumFraction(state.lambda)*100) + '%';
+  }
+
+  lamSlider.addEventListener('input', () => {
+    state.lambda = parseFloat(lamSlider.value);
+    lamVal.textContent = Math.round(state.lambda) + '°';
+    state.playing = false; playBtn.textContent = '▶ Play month';
+    updatePlayAllLabel();
+    updateAll();
+  });
+  earthSlider.addEventListener('input', () => {
+    state.earthRot = parseFloat(earthSlider.value);
+    const t = localTimeFromEarthRot(state.earthRot);
+    earthVal.textContent = Math.round(state.earthRot) + '° · ' + fmtClock(t);
+    state.earthPlaying = false; earthPlayBtn.textContent = '▶ Spin Earth'; earthPlayBtn.classList.remove('active');
+    updatePlayAllLabel();
+    updateAll();
+  });
+  moonSpinSlider.addEventListener('input', () => {
+    state.moonSpin = parseFloat(moonSpinSlider.value);
+    moonSpinVal.textContent = Math.round(state.moonSpin) + '°';
+    state.moonPlaying = false; moonPlayBtn.textContent = '▶ Spin Moon'; moonPlayBtn.classList.remove('active');
+    updatePlayAllLabel();
+    updateAll();
+  });
+  speedSlider.addEventListener('input', () => {
+    state.speed = parseFloat(speedSlider.value);
+    speedVal.textContent = state.speed + '×';
+  });
+  playBtn.addEventListener('click', () => {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? '❚❚ Pause month' : '▶ Play month';
+    updatePlayAllLabel();
+  });
+  earthPlayBtn.addEventListener('click', () => {
+    state.earthPlaying = !state.earthPlaying;
+    earthPlayBtn.textContent = state.earthPlaying ? '❚❚ Pause Earth' : '▶ Spin Earth';
+    earthPlayBtn.classList.toggle('active', state.earthPlaying);
+    updatePlayAllLabel();
+  });
+  moonPlayBtn.addEventListener('click', () => {
+    state.moonPlaying = !state.moonPlaying;
+    moonPlayBtn.textContent = state.moonPlaying ? '❚❚ Pause Moon' : '▶ Spin Moon';
+    moonPlayBtn.classList.toggle('active', state.moonPlaying);
+    updatePlayAllLabel();
+  });
+  playAllBtn.addEventListener('click', () => {
+    const turnOn = !(state.playing && state.earthPlaying && state.moonPlaying);
+    state.playing = turnOn; state.earthPlaying = turnOn; state.moonPlaying = turnOn;
+    playBtn.textContent = turnOn ? '❚❚ Pause month' : '▶ Play month';
+    earthPlayBtn.textContent = turnOn ? '❚❚ Pause Earth' : '▶ Spin Earth';
+    earthPlayBtn.classList.toggle('active', turnOn);
+    moonPlayBtn.textContent = turnOn ? '❚❚ Pause Moon' : '▶ Spin Moon';
+    moonPlayBtn.classList.toggle('active', turnOn);
+    updatePlayAllLabel();
+  });
+  resetBtn.addEventListener('click', () => {
+    state.lambda = 0; state.playing = false;
+    state.earthRot = 0; state.earthPlaying = false;
+    state.moonSpin = 0; state.moonPlaying = false;
+    lamSlider.value = 0; lamVal.textContent = '0°';
+    earthSlider.value = 0; earthVal.textContent = '0° · 12:00 PM';
+    moonSpinSlider.value = 0; moonSpinVal.textContent = '0°';
+    playBtn.textContent = '▶ Play month';
+    earthPlayBtn.textContent = '▶ Spin Earth'; earthPlayBtn.classList.remove('active');
+    moonPlayBtn.textContent = '▶ Spin Moon'; moonPlayBtn.classList.remove('active');
+    updatePlayAllLabel();
+    updateAll();
+  });
+
+  updateAll();
+  updatePlayAllLabel();
+
+  // ---------------------------------------------------------------
+  // Camera controls + drag-the-Moon interaction
+  // ---------------------------------------------------------------
+  let camAzimuth = 0.5, camPolar = 1.05, camRadius = 34;
+  const MIN_RADIUS = 12, MAX_RADIUS = 90;
+
+  function updateCamera(){
+    camPolar = Math.max(0.08, Math.min(Math.PI-0.08, camPolar));
+    const x = camRadius * Math.sin(camPolar) * Math.sin(camAzimuth);
+    const y = camRadius * Math.cos(camPolar);
+    const z = camRadius * Math.sin(camPolar) * Math.cos(camAzimuth);
+    camera.position.set(x,y,z);
+    camera.lookAt(0,0,0);
+  }
+  updateCamera();
+
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const canvas = renderer.domElement;
+  let dragMode = null, lastX=0, lastY=0, moonHintFaded=false;
+
+  function pointerToNdc(e){
+    const rect = canvas.getBoundingClientRect();
+    ndc.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    ndc.y = -(((e.clientY-rect.top)/rect.height)*2-1);
+  }
+  function raycastToOrbitPlane(){
+    const ray = raycaster.ray;
+    if(Math.abs(ray.direction.y) < 1e-6) return null;
+    const t = -ray.origin.y / ray.direction.y;
+    if(t < 0) return null;
+    return new THREE.Vector3(ray.origin.x + ray.direction.x*t, 0, ray.origin.z + ray.direction.z*t);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    pointerToNdc(e);
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.intersectObject(moonMesh, false);
+    dragMode = hit.length ? 'moon' : 'orbit';
+    canvas.classList.add(dragMode==='moon' ? 'moving':'dragging');
+    lastX=e.clientX; lastY=e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+    if(dragMode==='moon' && !moonHintFaded){ moonHintDiv.style.opacity='0'; moonHintFaded=true; }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if(!dragMode) return;
+    if(dragMode==='orbit'){
+      const dx=e.clientX-lastX, dy=e.clientY-lastY;
+      lastX=e.clientX; lastY=e.clientY;
+      camAzimuth -= dx*0.006;
+      camPolar   -= dy*0.006;
+      updateCamera();
+    } else if(dragMode==='moon'){
+      pointerToNdc(e);
+      raycaster.setFromCamera(ndc, camera);
+      const pt = raycastToOrbitPlane();
+      if(pt){
+        let lam = THREE.MathUtils.radToDeg(Math.atan2(-pt.z, pt.x));
+        lam = ((lam % 360) + 360) % 360;
+        state.lambda = lam;
+        lamSlider.value = lam;
+        lamVal.textContent = Math.round(lam) + '°';
+        state.playing = false; playBtn.textContent = '▶ Play month';
+        updatePlayAllLabel();
+        updateAll();
+      }
+    }
+  });
+  function endDrag(){ if(dragMode){ canvas.classList.remove('dragging','moving'); } dragMode=null; }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave', endDrag);
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    camRadius = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, camRadius + e.deltaY*0.03));
+    updateCamera();
+  }, {passive:false});
+
+  // ---------------------------------------------------------------
+  // Screen-space label projection
+  // ---------------------------------------------------------------
+  const v3 = new THREE.Vector3();
+  function project(pos, div, offsetY){
+    v3.copy(pos).project(camera);
+    if(v3.z>1){ div.style.display='none'; return; }
+    div.style.display='';
+    const x=(v3.x*0.5+0.5)*window.innerWidth;
+    const y=(-v3.y*0.5+0.5)*window.innerHeight;
+    div.style.left=x+'px'; div.style.top=(y+(offsetY||0))+'px';
+  }
+
+  // ---------------------------------------------------------------
+  // Animation loop
+  // ---------------------------------------------------------------
+  let lastTime = performance.now();
+  function animate(now){
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, (now-lastTime)/1000);
+    lastTime = now;
+
+    let needsUpdate = false;
+    if(state.playing){
+      state.lambda = (state.lambda + dt*state.speed*MOON_RATE) % 360;
+      lamSlider.value = state.lambda; lamVal.textContent = Math.round(state.lambda) + '°';
+      needsUpdate = true;
+    }
+    if(state.earthPlaying){
+      state.earthRot = (state.earthRot + dt*state.speed*EARTH_RATE) % 360;
+      earthSlider.value = state.earthRot;
+      earthVal.textContent = Math.round(state.earthRot) + '° · ' + fmtClock(localTimeFromEarthRot(state.earthRot));
+      needsUpdate = true;
+    }
+    if(state.moonPlaying){
+      state.moonSpin = (state.moonSpin + dt*state.speed*MOON_RATE) % 360;
+      moonSpinSlider.value = state.moonSpin;
+      moonSpinVal.textContent = Math.round(state.moonSpin) + '°';
+      needsUpdate = true;
+    }
+    if(needsUpdate) updateAll();
+
+    project(sunPos, sunLabelDiv, -14);
+    project(new THREE.Vector3(0,0,0), earthLabelDiv, -EARTH_R*13);
+    const equatorWorld = new THREE.Vector3(); equatorDot.getWorldPosition(equatorWorld);
+    project(equatorWorld, equatorDotLabelDiv, -8);
+    project(moonPivot.position, moonLabelDiv, -MOON_R*13);
+    project(moonPivot.position, moonHintDiv, -MOON_R*13-14);
+    const moonFaceWorld = new THREE.Vector3(); moonFaceDot.getWorldPosition(moonFaceWorld);
+    project(moonFaceWorld, moonFaceDotLabelDiv, -8);
+    phaseMarkers.forEach(m => project(m.pos, m.div, -6));
+
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(animate);
+
+})();
+</script>
+</body>
+</html>

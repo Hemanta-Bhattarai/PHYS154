@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sunrise &amp; Sunset — Solstice vs. Equinox</title>
+<style>
+  :root{
+    --bg:#060a14;
+    --panel:rgba(13,18,32,0.78);
+    --panel-border:rgba(255,255,255,0.09);
+    --text:#e8ecf4;
+    --text-dim:#8b93a7;
+    --gold:#ffc857;
+    --cyan:#4cc9f0;
+    --violet:#b892ff;
+    --rose:#ef476f;
+    --track:#1b2333;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);overflow:hidden;
+    font-family:'Space Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);}
+  #canvas-wrap{position:fixed;inset:0;}
+  canvas{display:block;width:100%;height:100%;cursor:grab;}
+  canvas.dragging{cursor:grabbing;}
+  canvas.tilting{cursor:ns-resize;}
+
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:22px 26px;pointer-events:none;z-index:5;}
+  .title-block h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.01em;}
+  .title-block p{margin:4px 0 0;font-size:13px;color:var(--text-dim);max-width:400px;line-height:1.5;}
+  .instructions{text-align:right;font-size:12.5px;color:var(--text-dim);line-height:1.7;max-width:250px;}
+  .instructions b{color:var(--text);font-weight:500;}
+
+  .panel{position:fixed;left:22px;bottom:22px;width:350px;max-width:calc(100vw - 44px);
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;
+    padding:18px 20px 16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    z-index:5;box-shadow:0 20px 50px rgba(0,0,0,0.35);max-height:calc(100vh - 44px);overflow-y:auto;}
+  .row{margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  .row-label{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--text-dim);margin-bottom:6px;}
+  .row-label .value{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--track);border-radius:2px;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;box-shadow:0 0 0 3px rgba(76,201,240,0.15);}
+  input[type=range]#latSlider::-webkit-slider-thumb{background:var(--rose);box-shadow:0 0 0 3px rgba(239,71,111,0.15);}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;}
+  input[type=range]#latSlider::-moz-range-thumb{background:var(--rose);}
+
+  .seg{display:flex;gap:6px;}
+  .seg button{flex:1;font-family:inherit;font-size:11.5px;font-weight:600;background:#131a2c;color:var(--text-dim);
+    border:1px solid var(--panel-border);border-radius:8px;padding:8px 6px;cursor:pointer;transition:.15s;}
+  .seg button.active.june{background:var(--gold);color:#241a02;border-color:var(--gold);}
+  .seg button.active.equinox{background:var(--cyan);color:#04121b;border-color:var(--cyan);}
+  .seg button.active.december{background:var(--violet);color:#1c0f33;border-color:var(--violet);}
+
+  .btn-row{display:flex;gap:8px;margin-top:2px;}
+  button{font-family:inherit;font-size:12.5px;font-weight:600;background:#131a2c;color:var(--text);border:1px solid var(--panel-border);border-radius:8px;padding:8px 12px;cursor:pointer;transition:border-color .15s;}
+  button:hover{border-color:var(--cyan);}
+  button.primary{background:var(--cyan);color:#04121b;border-color:var(--cyan);}
+  button.primary:hover{opacity:.9;}
+
+  .divider{height:1px;background:var(--panel-border);margin:14px 0;}
+  .legend{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-dim);}
+  .legend .item{display:flex;align-items:center;}
+  .info{font-size:12.5px;line-height:1.75;color:var(--text-dim);}
+  .info strong{color:var(--text);}
+  .info .hl{font-weight:700;}
+  .info .hl.june{color:var(--gold);} .info .hl.equinox{color:var(--cyan);} .info .hl.december{color:var(--violet);}
+
+  .label-layer{position:fixed;inset:0;pointer-events:none;z-index:3;}
+  .marker-label{position:absolute;transform:translate(-50%,-150%);font-size:11.5px;font-weight:600;white-space:nowrap;padding:3px 8px;border-radius:6px;background:rgba(6,10,20,0.65);border:1px solid var(--panel-border);letter-spacing:.02em;}
+  .marker-label.compass{background:transparent;border:none;color:var(--text-dim);font-size:12px;padding:0;}
+  .marker-label.compass.major{color:var(--text);font-size:13.5px;font-weight:700;}
+  .marker-label.pole{color:var(--rose);}
+  .marker-label.sun{color:var(--gold);font-size:12.5px;}
+  .pole-hint{position:absolute;transform:translate(-50%,-160%);font-size:11px;color:var(--rose);white-space:nowrap;font-weight:600;transition:opacity .4s;}
+
+  @media (max-width:640px){
+    .instructions{display:none;}
+    .panel{left:12px;right:12px;bottom:12px;width:auto;}
+    .title-block p{max-width:220px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div class="label-layer" id="labelLayer"></div>
+
+<div class="topbar">
+  <div class="title-block">
+    <h1>Sunrise &amp; Sunset</h1>
+    <p>An observer's view of the local sky. Each arc is the Sun's actual path from sunrise to sunset on that day — same latitude, different declination.</p>
+  </div>
+  <div class="instructions">
+    <div><b>Drag</b> empty space to rotate the view</div>
+    <div><b>Drag</b> the rose pole marker to change latitude</div>
+    <div><b>Scroll</b> to zoom</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <div class="row-label">
+      <span><span class="swatch" style="background:var(--rose)"></span>Latitude</span>
+      <span class="value" id="latVal">41.6°N</span>
+    </div>
+    <input type="range" id="latSlider" min="0" max="90" step="0.5" value="41.6" aria-label="Observer latitude">
+  </div>
+
+  <div class="row">
+    <div class="row-label"><span>Season shown</span></div>
+    <div class="seg">
+      <button class="active june" data-season="june">June Solstice</button>
+      <button class="equinox" data-season="equinox">Equinox</button>
+      <button class="december" data-season="december">Dec Solstice</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="row-label"><span>Time of day</span><span class="value" id="timeVal">8:00 AM</span></div>
+    <input type="range" id="timeSlider" min="0" max="24" step="0.05" value="8" aria-label="Time of day, hours">
+  </div>
+
+  <div class="btn-row">
+    <button class="primary" id="playBtn">▶ Play day</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="info">
+    <div>Sunrise: <strong id="riseTime">—</strong> at <strong id="riseAz">—</strong> azimuth</div>
+    <div>Sunset: <strong id="setTime">—</strong> at <strong id="setAz">—</strong> azimuth</div>
+    <div>Day length: <strong id="dayLen">—</strong> &nbsp;·&nbsp; Noon altitude: <strong id="noonAlt">—</strong></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:var(--gold)"></span>June Solstice path (Sun farthest north)</div>
+    <div class="item"><span class="swatch" style="background:var(--cyan)"></span>Equinox path (Sun on the equator)</div>
+    <div class="item"><span class="swatch" style="background:var(--violet)"></span>December Solstice path (Sun farthest south)</div>
+    <div class="item"><span class="swatch" style="background:var(--rose)"></span>Celestial pole &amp; latitude handle</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // Setup
+  // ---------------------------------------------------------------
+  const wrap = document.getElementById('canvas-wrap');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 2000);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x060a14, 1);
+  wrap.appendChild(renderer.domElement);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---------------------------------------------------------------
+  // Starfield
+  // ---------------------------------------------------------------
+  (function starfield(){
+    const count = 1400;
+    const positions = new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const r = 380 + Math.random()*220;
+      const theta = Math.random()*Math.PI*2;
+      const phi = Math.acos(2*Math.random()-1);
+      positions[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+      positions[i*3+1] = Math.abs(r*Math.cos(phi)); // keep stars above ground for this local-sky view
+      positions[i*3+2] = r*Math.sin(phi)*Math.sin(theta);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    const mat = new THREE.PointsMaterial({color:0xffffff, size:1.15, sizeAttenuation:true});
+    scene.add(new THREE.Points(geo, mat));
+  })();
+
+  // ---------------------------------------------------------------
+  // Ground (the local horizon)
+  // ---------------------------------------------------------------
+  const GROUND_R = 18, SKY_R = 15.5;
+
+  function groundTexture(){
+    const c = document.createElement('canvas'); c.width=512;c.height=512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#141b2c'; ctx.fillRect(0,0,512,512);
+    ctx.strokeStyle = 'rgba(140,155,180,0.28)'; ctx.lineWidth = 1.4;
+    for(let i=0;i<=16;i++){
+      const p = i*(512/16);
+      ctx.beginPath(); ctx.moveTo(p,0); ctx.lineTo(p,512); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,p); ctx.lineTo(512,p); ctx.stroke();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(GROUND_R, 64),
+    new THREE.MeshBasicMaterial({map: groundTexture(), side:THREE.DoubleSide})
+  );
+  ground.rotation.x = Math.PI/2;
+  scene.add(ground);
+
+  const groundRim = new THREE.Mesh(
+    new THREE.RingGeometry(GROUND_R-0.06, GROUND_R+0.06, 128),
+    new THREE.MeshBasicMaterial({color:0x4a5670, side:THREE.DoubleSide})
+  );
+  groundRim.rotation.x = Math.PI/2;
+  scene.add(groundRim);
+
+  // observer marker
+  const observer = new THREE.Mesh(
+    new THREE.ConeGeometry(0.32, 1.3, 12),
+    new THREE.MeshBasicMaterial({color:0xbcd0e6})
+  );
+  observer.position.y = 0.65;
+  scene.add(observer);
+
+  // ---------------------------------------------------------------
+  // Compass labels
+  // ---------------------------------------------------------------
+  const labelLayer = document.getElementById('labelLayer');
+  const compassDefs = [
+    {deg:0,   name:'N',  major:true},
+    {deg:45,  name:'NE', major:false},
+    {deg:90,  name:'E',  major:true},
+    {deg:135, name:'SE', major:false},
+    {deg:180, name:'S',  major:true},
+    {deg:225, name:'SW', major:false},
+    {deg:270, name:'W',  major:true},
+    {deg:315, name:'NW', major:false}
+  ];
+  const compassObjs = compassDefs.map(cdef => {
+    const rad = THREE.MathUtils.degToRad(cdef.deg);
+    const pos = new THREE.Vector3((GROUND_R+2.2)*Math.sin(rad), 0.3, (GROUND_R+2.2)*Math.cos(rad));
+    const div = document.createElement('div');
+    div.className = 'marker-label compass' + (cdef.major ? ' major' : '');
+    div.textContent = cdef.name;
+    labelLayer.appendChild(div);
+    return {pos, div};
+  });
+
+  // ---------------------------------------------------------------
+  // Astronomy math: equatorial (dec, hour angle) -> horizontal (alt, az)
+  // Frame: X = East, Y = Zenith (up), Z = North
+  // ---------------------------------------------------------------
+  function horizontal(latDeg, decDeg, Hdeg){
+    const lat = THREE.MathUtils.degToRad(latDeg);
+    const dec = THREE.MathUtils.degToRad(decDeg);
+    const H   = THREE.MathUtils.degToRad(Hdeg);
+    let sinAlt = Math.sin(lat)*Math.sin(dec) + Math.cos(lat)*Math.cos(dec)*Math.cos(H);
+    sinAlt = Math.max(-1, Math.min(1, sinAlt));
+    const alt = Math.asin(sinAlt);
+    let cosAz = (Math.sin(dec) - Math.sin(alt)*Math.sin(lat)) / (Math.cos(alt)*Math.cos(lat) || 1e-9);
+    cosAz = Math.max(-1, Math.min(1, cosAz));
+    let az = Math.acos(cosAz);
+    if(Hdeg > 0) az = 2*Math.PI - az;
+    return {alt, az};
+  }
+  function altAzToVec(alt, az, radius){
+    return new THREE.Vector3(radius*Math.cos(alt)*Math.sin(az), Math.max(0,radius*Math.sin(alt)), radius*Math.cos(alt)*Math.cos(az));
+  }
+
+  function computeArc(latDeg, decDeg, radius){
+    const samples = [];
+    for(let i=0;i<=360;i+=2){ const Hdeg=i-180; samples.push({Hdeg, alt:horizontal(latDeg,decDeg,Hdeg).alt}); }
+    const anyUp = samples.some(p=>p.alt>=0), anyDown = samples.some(p=>p.alt<0);
+    if(anyUp && !anyDown){
+      const pts = samples.map(p=>{ const h=horizontal(latDeg,decDeg,p.Hdeg); return altAzToVec(h.alt,h.az,radius); });
+      return {points:pts, sunriseH:null, sunsetH:null, alwaysUp:true, alwaysDown:false};
+    }
+    if(anyDown && !anyUp){ return {points:[], sunriseH:null, sunsetH:null, alwaysUp:false, alwaysDown:true}; }
+
+    const crossings = [];
+    for(let i=1;i<samples.length;i++){
+      const a=samples[i-1], b=samples[i];
+      if((a.alt<0 && b.alt>=0) || (a.alt>=0 && b.alt<0)){
+        const t = (0-a.alt)/(b.alt-a.alt);
+        crossings.push(a.Hdeg + t*(b.Hdeg-a.Hdeg));
+      }
+    }
+    crossings.sort((x,y)=>x-y);
+    const sunriseH = crossings[0], sunsetH = crossings[crossings.length-1];
+    const pts = [];
+    const steps = 140;
+    for(let i=0;i<=steps;i++){
+      const Hdeg = sunriseH + (sunsetH-sunriseH)*(i/steps);
+      const h = horizontal(latDeg, decDeg, Hdeg);
+      pts.push(altAzToVec(Math.max(0,h.alt), h.az, radius));
+    }
+    return {points:pts, sunriseH, sunsetH, alwaysUp:false, alwaysDown:false};
+  }
+
+  function fmtClock(hDecimal){
+    let h = ((hDecimal%24)+24)%24;
+    let hh = Math.floor(h), mm = Math.round((h-hh)*60);
+    if(mm===60){mm=0; hh=(hh+1)%24;}
+    const ampm = hh<12 ? 'AM':'PM';
+    let hh12 = hh%12; if(hh12===0) hh12=12;
+    return hh12+':'+String(mm).padStart(2,'0')+' '+ampm;
+  }
+  function fmtDuration(hDecimal){
+    const hh = Math.floor(hDecimal), mm = Math.round((hDecimal-hh)*60);
+    return hh+'h '+String(mm).padStart(2,'0')+'m';
+  }
+  function fmtAz(azRad){ return Math.round(THREE.MathUtils.radToDeg(azRad)) + '°'; }
+
+  // ---------------------------------------------------------------
+  // Seasons, arcs, sun marker, celestial pole
+  // ---------------------------------------------------------------
+  const SEASONS = {
+    june:      {dec: 23.44, color:0xffc857, label:'June Solstice'},
+    equinox:   {dec: 0,     color:0x4cc9f0, label:'Equinox'},
+    december:  {dec:-23.44, color:0xb892ff, label:'December Solstice'}
+  };
+
+  const arcLines = {};
+  const arcData = {};
+  Object.keys(SEASONS).forEach(key => {
+    const geo = new THREE.BufferGeometry();
+    const mat = new THREE.LineBasicMaterial({color: SEASONS[key].color, transparent:true, opacity:0.35, linewidth:1});
+    const line = new THREE.Line(geo, mat);
+    scene.add(line);
+    arcLines[key] = line;
+  });
+
+  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 20), new THREE.MeshBasicMaterial({color:0xffc857}));
+  scene.add(sunMesh);
+  (function sunGlow(){
+    const c = document.createElement('canvas'); c.width=256;c.height=256;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(128,128,0,128,128,128);
+    g.addColorStop(0,'rgba(255,200,87,0.6)'); g.addColorStop(1,'rgba(255,200,87,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,256,256);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false}));
+    spr.scale.set(5,5,1);
+    sunMesh.add(spr);
+  })();
+  const sunLabelDiv = document.createElement('div');
+  sunLabelDiv.className = 'marker-label sun'; sunLabelDiv.textContent = 'Sun';
+  labelLayer.appendChild(sunLabelDiv);
+
+  const poleHandle = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 18), new THREE.MeshBasicMaterial({color:0xef476f}));
+  scene.add(poleHandle);
+  const poleLabelDiv = document.createElement('div');
+  poleLabelDiv.className = 'marker-label pole'; poleLabelDiv.textContent = 'Celestial Pole';
+  labelLayer.appendChild(poleLabelDiv);
+  const poleHintDiv = document.createElement('div');
+  poleHintDiv.className = 'pole-hint'; poleHintDiv.textContent = 'drag to change latitude';
+  labelLayer.appendChild(poleHintDiv);
+
+  // sunrise/sunset ground markers per season
+  const eventMarkers = {};
+  Object.keys(SEASONS).forEach(key => {
+    const rise = new THREE.Mesh(new THREE.SphereGeometry(0.28,12,12), new THREE.MeshBasicMaterial({color:SEASONS[key].color}));
+    const set  = new THREE.Mesh(new THREE.SphereGeometry(0.28,12,12), new THREE.MeshBasicMaterial({color:SEASONS[key].color}));
+    scene.add(rise); scene.add(set);
+    eventMarkers[key] = {rise, set};
+  });
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  const state = { lat: 41.6, season: 'june', time: 8, playing:false, speed:1.0 };
+
+  function rebuildArcs(){
+    Object.keys(SEASONS).forEach(key => {
+      const s = SEASONS[key];
+      const data = computeArc(state.lat, s.dec, SKY_R);
+      arcData[key] = data;
+      const geo = new THREE.BufferGeometry().setFromPoints(data.points);
+      arcLines[key].geometry.dispose();
+      arcLines[key].geometry = geo;
+      const active = (key === state.season);
+      arcLines[key].material.opacity = active ? 0.95 : 0.28;
+      arcLines[key].material.linewidth = active ? 2 : 1;
+
+      if(!data.alwaysUp && !data.alwaysDown && data.points.length){
+        eventMarkers[key].rise.visible = true; eventMarkers[key].set.visible = true;
+        eventMarkers[key].rise.position.copy(data.points[0]);
+        eventMarkers[key].set.position.copy(data.points[data.points.length-1]);
+      } else {
+        eventMarkers[key].rise.visible = false; eventMarkers[key].set.visible = false;
+      }
+      eventMarkers[key].rise.material.opacity = active?1:0.4;
+      eventMarkers[key].set.material.opacity = active?1:0.4;
+    });
+
+    const poleRad = THREE.MathUtils.degToRad(state.lat);
+    poleHandle.position.set(0, SKY_R*Math.sin(poleRad), SKY_R*Math.cos(poleRad));
+  }
+
+  function updateSunAndInfo(){
+    const s = SEASONS[state.season];
+    const data = arcData[state.season];
+    const Hdeg = (state.time - 12) * 15;
+    const h = horizontal(state.lat, s.dec, Hdeg);
+    if(h.alt >= -0.001){
+      sunMesh.visible = true;
+      sunMesh.position.copy(altAzToVec(Math.max(0,h.alt), h.az, SKY_R-0.3));
+    } else {
+      sunMesh.visible = false;
+    }
+
+    document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('active', b.dataset.season===state.season));
+
+    const riseTime = document.getElementById('riseTime');
+    const setTime = document.getElementById('setTime');
+    const riseAz = document.getElementById('riseAz');
+    const setAz = document.getElementById('setAz');
+    const dayLen = document.getElementById('dayLen');
+    const noonAlt = document.getElementById('noonAlt');
+
+    if(data.alwaysUp){
+      riseTime.textContent = '—'; setTime.textContent = '—';
+      riseAz.textContent = '—'; setAz.textContent = '—';
+      dayLen.textContent = '24h (polar day)';
+    } else if(data.alwaysDown){
+      riseTime.textContent = '—'; setTime.textContent = '—';
+      riseAz.textContent = '—'; setAz.textContent = '—';
+      dayLen.textContent = '0h (polar night)';
+    } else {
+      const riseClock = 12 + data.sunriseH/15;
+      const setClock  = 12 + data.sunsetH/15;
+      riseTime.textContent = fmtClock(riseClock);
+      setTime.textContent = fmtClock(setClock);
+      const hr = horizontal(state.lat, s.dec, data.sunriseH);
+      const hs = horizontal(state.lat, s.dec, data.sunsetH);
+      riseAz.textContent = fmtAz(hr.az);
+      setAz.textContent = fmtAz(hs.az);
+      dayLen.textContent = fmtDuration((data.sunsetH - data.sunriseH)/15);
+    }
+    const hNoon = horizontal(state.lat, s.dec, 0);
+    noonAlt.textContent = Math.round(THREE.MathUtils.radToDeg(hNoon.alt)) + '°';
+  }
+
+  rebuildArcs();
+  updateSunAndInfo();
+
+  // ---------------------------------------------------------------
+  // UI wiring
+  // ---------------------------------------------------------------
+  const latSlider = document.getElementById('latSlider');
+  const latVal = document.getElementById('latVal');
+  const timeSlider = document.getElementById('timeSlider');
+  const timeVal = document.getElementById('timeVal');
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  latSlider.addEventListener('input', () => {
+    state.lat = parseFloat(latSlider.value);
+    latVal.textContent = state.lat.toFixed(1) + '°N';
+    rebuildArcs(); updateSunAndInfo();
+  });
+  timeSlider.addEventListener('input', () => {
+    state.time = parseFloat(timeSlider.value);
+    timeVal.textContent = fmtClock(state.time);
+    state.playing = false; playBtn.textContent = '▶ Play day';
+    updateSunAndInfo();
+  });
+  document.querySelectorAll('.seg button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.season = btn.dataset.season;
+      rebuildArcs(); updateSunAndInfo();
+    });
+  });
+  playBtn.addEventListener('click', () => {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? '❚❚ Pause day' : '▶ Play day';
+  });
+  resetBtn.addEventListener('click', () => {
+    state.lat = 41.6; state.season='june'; state.time=8; state.playing=false;
+    latSlider.value=41.6; timeSlider.value=8;
+    latVal.textContent='41.6°N'; timeVal.textContent=fmtClock(8);
+    playBtn.textContent='▶ Play day';
+    rebuildArcs(); updateSunAndInfo();
+  });
+
+  // ---------------------------------------------------------------
+  // Camera controls (kept above the horizon) + pole-drag for latitude
+  // ---------------------------------------------------------------
+  let camAzimuth = 0.6, camPolar = 1.0, camRadius = 40;
+  const MIN_RADIUS = 18, MAX_RADIUS = 120;
+  const MIN_POLAR = 0.05, MAX_POLAR = Math.PI/2 - 0.02;
+
+  function updateCamera(){
+    camPolar = Math.max(MIN_POLAR, Math.min(MAX_POLAR, camPolar));
+    const x = camRadius * Math.sin(camPolar) * Math.sin(camAzimuth);
+    const y = camRadius * Math.cos(camPolar);
+    const z = camRadius * Math.sin(camPolar) * Math.cos(camAzimuth);
+    camera.position.set(x,y,z);
+    camera.lookAt(0,3,0);
+  }
+  updateCamera();
+
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const canvas = renderer.domElement;
+  let dragMode = null, lastX=0, lastY=0, poleHintFaded=false;
+
+  function pointerToNdc(e){
+    const rect = canvas.getBoundingClientRect();
+    ndc.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    ndc.y = -(((e.clientY-rect.top)/rect.height)*2-1);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    pointerToNdc(e);
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.intersectObject(poleHandle, false);
+    dragMode = hit.length ? 'tilt' : 'orbit';
+    canvas.classList.add(dragMode==='tilt' ? 'tilting':'dragging');
+    lastX=e.clientX; lastY=e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+    if(dragMode==='tilt' && !poleHintFaded){ poleHintDiv.style.opacity='0'; poleHintFaded=true; }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if(!dragMode) return;
+    const dx=e.clientX-lastX, dy=e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    if(dragMode==='orbit'){
+      camAzimuth -= dx*0.006;
+      camPolar   -= dy*0.006;
+      updateCamera();
+    } else if(dragMode==='tilt'){
+      state.lat = Math.max(0, Math.min(90, state.lat - dy*0.28));
+      latSlider.value = state.lat;
+      latVal.textContent = state.lat.toFixed(1)+'°N';
+      rebuildArcs(); updateSunAndInfo();
+    }
+  });
+  function endDrag(){ if(dragMode){ canvas.classList.remove('dragging','tilting'); } dragMode=null; }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave', endDrag);
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    camRadius = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, camRadius + e.deltaY*0.04));
+    updateCamera();
+  }, {passive:false});
+
+  // ---------------------------------------------------------------
+  // Screen-space label projection
+  // ---------------------------------------------------------------
+  const v3 = new THREE.Vector3();
+  function project(pos, div, offsetY){
+    v3.copy(pos).project(camera);
+    if(v3.z>1){ div.style.display='none'; return; }
+    div.style.display='';
+    const x=(v3.x*0.5+0.5)*window.innerWidth;
+    const y=(-v3.y*0.5+0.5)*window.innerHeight;
+    div.style.left=x+'px'; div.style.top=(y+(offsetY||0))+'px';
+  }
+
+  // ---------------------------------------------------------------
+  // Animation loop
+  // ---------------------------------------------------------------
+  let lastTime = performance.now();
+  function animate(now){
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, (now-lastTime)/1000);
+    lastTime = now;
+
+    if(state.playing){
+      state.time = (state.time + dt*state.speed*2) % 24;
+      timeSlider.value = state.time;
+      timeVal.textContent = fmtClock(state.time);
+      updateSunAndInfo();
+    }
+
+    compassObjs.forEach(c => project(c.pos, c.div, -4));
+    project(poleHandle.position, poleLabelDiv, -8);
+    project(poleHandle.position, poleHintDiv, -6);
+    if(sunMesh.visible){ sunLabelDiv.style.display=''; project(sunMesh.position, sunLabelDiv, -10); }
+    else { sunLabelDiv.style.display='none'; }
+
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(animate);
+
+})();
+</script>
+</body>
+</html>

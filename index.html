@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interactive Astronomy Tools</title>
+<style>
+  :root{
+    --bg:#060a14; --bg-panel:#161b22; --bg-panel-alt:#1c232c; --border:#2a3340;
+    --text:#e6edf3; --text-dim:#9aa7b5; --accent:#5ec8f8; --accent-warm:#f7b955;
+    --accent-green:#7ee2a8; --accent-rose:#f08fa2; --accent-violet:#b892ff; --max-w:920px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.6;}
+  .wrap{max-width:var(--max-w);margin:0 auto;padding:56px 24px 100px;}
+  header{border-bottom:2px solid var(--border);padding-bottom:24px;margin-bottom:36px;}
+  header .kicker{color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
+  header h1{font-size:30px;margin:8px 0 6px;font-weight:700;}
+  header p{color:var(--text-dim);font-size:14.5px;max-width:640px;margin:0;}
+
+  .card{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:14px;
+    padding:24px 26px; margin-bottom:18px; display:flex; gap:20px; align-items:flex-start;
+  }
+  .card .dot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex-shrink:0;}
+  .card .body{flex:1;}
+  .card h2{margin:0 0 6px;font-size:18px;}
+  .card p{margin:0 0 14px;color:var(--text-dim);font-size:13.5px;line-height:1.6;}
+  .card .tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .card .tag{
+    font-size:11px;color:var(--text-dim);background:var(--bg-panel-alt);
+    border:1px solid var(--border);border-radius:6px;padding:3px 9px;
+  }
+  .card a.open{
+    display:inline-block;color:var(--bg);background:var(--accent);text-decoration:none;
+    font-size:13.5px;font-weight:700;padding:9px 18px;border-radius:8px;transition:opacity .15s;
+  }
+  .card a.open:hover{opacity:.85;}
+
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--border);color:var(--text-dim);font-size:12.5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Interactive · Three.js · No build step</div>
+    <h1>Interactive Astronomy Tools</h1>
+    <p>Four standalone HTML explorers covering Earth's tilt, the phases of the Moon, sunrise &amp; sunset across the seasons, and solar/lunar eclipses. Each file is fully self-contained — open it directly in any browser, no server or install required.</p>
+  </header>
+
+  <div class="card">
+    <div class="dot" style="background:var(--accent-rose)"></div>
+    <div class="body">
+      <h2>Earth-Centered Ecliptic Explorer</h2>
+      <p>A geocentric view: Earth fixed at the center with its equatorial plane held flat, while the ecliptic — the Sun's apparent yearly path — is the plane tilted against it. Drag the pole handle to change the tilt (obliquity) and watch the equinox/solstice markers shift.</p>
+      <div class="tags"><span class="tag">Axial tilt</span><span class="tag">Equinox &amp; solstice</span><span class="tag">Drag-to-tilt</span></div>
+      <a class="open" href="earthcenteredeclipic.html">Open →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="dot" style="background:var(--accent-violet)"></div>
+    <div class="body">
+      <h2>Phases of the Moon</h2>
+      <p>Earth and Moon both spin in place — drag the Moon around its orbit and watch the phase disk ("as seen from Earth") update in real time. Includes a local sky/horizon view showing when the Moon rises and sets for each phase, calibrated to real orbital periods.</p>
+      <div class="tags"><span class="tag">Moon phases</span><span class="tag">Tidal locking</span><span class="tag">Real-time calibrated</span></div>
+      <a class="open" href="moonphaser.html">Open →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="dot" style="background:var(--accent-warm)"></div>
+    <div class="body">
+      <h2>Sunrise &amp; Sunset</h2>
+      <p>An observer's local horizon, with the Sun's actual daily path plotted for the June solstice, equinox, and December solstice side by side. Drag the celestial pole marker to change latitude and see sunrise/sunset azimuth and day length shift accordingly.</p>
+      <div class="tags"><span class="tag">Latitude</span><span class="tag">Day length</span><span class="tag">Horizon diagram</span></div>
+      <a class="open" href="sunrisesunset.html">Open →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="dot" style="background:var(--accent)"></div>
+    <div class="body">
+      <h2>Solar &amp; Lunar Eclipses</h2>
+      <p>Sun-centered, with Earth orbiting once a year and the Moon's tilted orbital plane following Earth around. Shows the line of nodes, eclipse seasons, and both shadow cones, plus live "as seen from Earth" views of the Sun and Moon during an eclipse.</p>
+      <div class="tags"><span class="tag">Nodes &amp; eclipse seasons</span><span class="tag">Shadow cones</span><span class="tag">Adjustable tilt &amp; node line</span></div>
+      <a class="open" href="eclipse.html">Open →</a>
+    </div>
+  </div>
+
+  <footer>
+    All four tools are plain HTML/CSS/JS using Three.js (loaded from cdnjs) — no build tools, frameworks, or server needed. Just open any file in a browser.
+  </footer>
+</div>
+</body>
+</html>

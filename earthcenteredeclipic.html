@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Earth's Equator &amp; the Ecliptic — Interactive Model</title>
+<style>
+  :root{
+    --bg:#060a14;
+    --panel:rgba(13,18,32,0.78);
+    --panel-border:rgba(255,255,255,0.09);
+    --text:#e8ecf4;
+    --text-dim:#8b93a7;
+    --gold:#ffc857;
+    --cyan:#4cc9f0;
+    --rose:#ef476f;
+    --track:#1b2333;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);overflow:hidden;
+    font-family:'Space Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);}
+  #canvas-wrap{position:fixed;inset:0;}
+  canvas{display:block;width:100%;height:100%;cursor:grab;}
+  canvas.dragging{cursor:grabbing;}
+  canvas.tilting{cursor:ns-resize;}
+
+  .topbar{
+    position:fixed;top:0;left:0;right:0;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:22px 26px;pointer-events:none;z-index:5;
+  }
+  .title-block h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.01em;}
+  .title-block p{margin:4px 0 0;font-size:13px;color:var(--text-dim);max-width:380px;line-height:1.5;}
+  .instructions{text-align:right;font-size:12.5px;color:var(--text-dim);line-height:1.7;max-width:260px;}
+  .instructions b{color:var(--text);font-weight:500;}
+
+  .panel{
+    position:fixed;left:22px;bottom:22px;width:340px;max-width:calc(100vw - 44px);
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;
+    padding:18px 20px 16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    z-index:5;box-shadow:0 20px 50px rgba(0,0,0,0.35);
+  }
+  .row{margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  .row-label{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--text-dim);margin-bottom:6px;}
+  .row-label .value{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;}
+  .marker-swatch{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle;}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--track);border-radius:2px;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;box-shadow:0 0 0 3px rgba(76,201,240,0.15);}
+  input[type=range]#tiltSlider::-webkit-slider-thumb{background:var(--rose);box-shadow:0 0 0 3px rgba(239,71,111,0.15);}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;}
+  input[type=range]#tiltSlider::-moz-range-thumb{background:var(--rose);}
+
+  .btn-row{display:flex;gap:8px;margin-top:2px;}
+  button{font-family:inherit;font-size:12.5px;font-weight:600;background:#131a2c;color:var(--text);border:1px solid var(--panel-border);border-radius:8px;padding:8px 12px;cursor:pointer;transition:border-color .15s;}
+  button:hover{border-color:var(--cyan);}
+  button.primary{background:var(--cyan);color:#04121b;border-color:var(--cyan);}
+  button.primary:hover{opacity:.9;}
+
+  .divider{height:1px;background:var(--panel-border);margin:14px 0;}
+  .legend{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text-dim);}
+  .legend .item{display:flex;align-items:center;}
+  .info{font-size:12.5px;line-height:1.6;color:var(--text-dim);}
+  .info strong{color:var(--text);}
+  .info .season{color:var(--gold);font-weight:600;}
+  .info .dec{color:var(--cyan);font-weight:600;}
+
+  .label-layer{position:fixed;inset:0;pointer-events:none;z-index:3;}
+  .marker-label{position:absolute;transform:translate(-50%,-150%);font-size:11.5px;font-weight:600;white-space:nowrap;padding:3px 8px;border-radius:6px;background:rgba(6,10,20,0.65);border:1px solid var(--panel-border);letter-spacing:.02em;}
+  .marker-label.solstice{color:var(--gold);}
+  .marker-label.equinox{color:var(--cyan);}
+  .marker-label.sun{color:var(--gold);font-size:12.5px;}
+  .marker-label.earth{color:#bcd0e6;}
+  .pole-hint{position:absolute;transform:translate(-50%,-160%);font-size:11px;color:var(--rose);white-space:nowrap;font-weight:600;transition:opacity .4s;}
+
+  @media (max-width:640px){
+    .instructions{display:none;}
+    .panel{left:12px;right:12px;bottom:12px;width:auto;}
+    .title-block p{max-width:220px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div class="label-layer" id="labelLayer"></div>
+
+<div class="topbar">
+  <div class="title-block">
+    <h1>Earth's Equator &amp; the Ecliptic</h1>
+    <p>Earth stays fixed here, equator held flat. The ecliptic — the Sun's apparent yearly path — is the plane tilted against it. Where the two planes cross gives the equinoxes; where the Sun sits farthest from the equator gives the solstices.</p>
+  </div>
+  <div class="instructions">
+    <div><b>Drag</b> empty space to rotate the view</div>
+    <div><b>Drag</b> the rose-colored handle up/down to change the tilt</div>
+    <div><b>Scroll</b> to zoom</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <div class="row-label">
+      <span><span class="swatch" style="background:var(--rose)"></span>Ecliptic tilt (obliquity)</span>
+      <span class="value" id="tiltVal">23.5°</span>
+    </div>
+    <input type="range" id="tiltSlider" min="0" max="90" step="0.5" value="23.5" aria-label="Ecliptic tilt in degrees">
+  </div>
+
+  <div class="row">
+    <div class="row-label">
+      <span><span class="swatch" style="background:var(--cyan)"></span>Sun's position on ecliptic</span>
+      <span class="value" id="lamVal">0°</span>
+    </div>
+    <input type="range" id="lamSlider" min="0" max="360" step="0.5" value="0" aria-label="Sun's ecliptic longitude, degrees">
+  </div>
+
+  <div class="btn-row">
+    <button class="primary" id="playBtn">▶ Play year</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+
+  <div class="row" style="margin-top:12px;">
+    <div class="row-label"><span>Speed</span><span class="value" id="speedVal">1.0×</span></div>
+    <input type="range" id="speedSlider" min="0.2" max="4" step="0.1" value="1" aria-label="Playback speed">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="info">
+    <div><span class="season" id="seasonLabel">December Solstice</span> · day ~<span id="dayLabel">355</span> of 365</div>
+    <div style="margin-top:4px;">Sun's declination: <span class="dec" id="decLabel">-23.5°</span></div>
+    <div id="illumNote" style="margin-top:4px;">The Sun is at its farthest point south of Earth's equator — Northern winter, Southern summer.</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="legend">
+    <div class="item"><span class="marker-swatch" style="background:var(--gold);border-radius:50%;"></span>Sun · <span class="marker-swatch" style="background:var(--gold);border-radius:50%;box-shadow:0 0 0 2px var(--gold) inset;"></span>&nbsp;ringed marker = solstice</div>
+    <div class="item"><span class="marker-swatch" style="background:var(--cyan);transform:rotate(45deg);"></span>diamond marker = equinox</div>
+    <div class="item"><span class="swatch" style="background:var(--cyan)"></span>Ecliptic plane (Sun's path)</div>
+    <div class="item"><span class="swatch" style="background:var(--rose)"></span>Earth's equatorial plane &amp; tilt handle</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // Setup
+  // ---------------------------------------------------------------
+  const wrap = document.getElementById('canvas-wrap');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 2000);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x060a14, 1);
+  wrap.appendChild(renderer.domElement);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---------------------------------------------------------------
+  // Starfield
+  // ---------------------------------------------------------------
+  (function starfield(){
+    const count = 1600;
+    const positions = new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const r = 380 + Math.random()*220;
+      const theta = Math.random()*Math.PI*2;
+      const phi = Math.acos(2*Math.random()-1);
+      positions[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+      positions[i*3+1] = r*Math.cos(phi);
+      positions[i*3+2] = r*Math.sin(phi)*Math.sin(theta);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    const mat = new THREE.PointsMaterial({color:0xffffff, size:1.15, sizeAttenuation:true});
+    scene.add(new THREE.Points(geo, mat));
+  })();
+
+  // ---------------------------------------------------------------
+  // Shared helpers
+  // ---------------------------------------------------------------
+  function gridTexture(color){
+    const c = document.createElement('canvas'); c.width=512;c.height=512;
+    const ctx = c.getContext('2d');
+    ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+    for(let i=0;i<=16;i++){
+      const p = i*(512/16);
+      ctx.beginPath(); ctx.moveTo(p,0); ctx.lineTo(p,512); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,p); ctx.lineTo(512,p); ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }
+
+  function earthTexture(){
+    const c = document.createElement('canvas'); c.width=512;c.height=256;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createLinearGradient(0,0,0,256);
+    grad.addColorStop(0,'#0b3d66'); grad.addColorStop(0.5,'#146b9c'); grad.addColorStop(1,'#0b3d66');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,512,256);
+    ctx.fillStyle = '#3f7d4a';
+    function blob(x,y,w,h,rot){
+      ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+      ctx.beginPath(); ctx.ellipse(0,0,w,h,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    blob(90,90,55,30,0.3); blob(140,125,38,24,-0.2); blob(265,80,72,35,0.1);
+    blob(305,145,45,20,0.4); blob(385,70,50,28,-0.3); blob(425,150,34,18,0.2);
+    blob(55,180,40,20,0.1); blob(205,195,60,25,-0.15); blob(460,110,28,40,0.5);
+    ctx.fillStyle = '#eef3f7';
+    ctx.fillRect(0,0,512,13); ctx.fillRect(0,243,512,13);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function sunGlowSprite(scale){
+    const c = document.createElement('canvas'); c.width=256;c.height=256;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(128,128,0,128,128,128);
+    g.addColorStop(0,'rgba(255,200,87,0.6)');
+    g.addColorStop(1,'rgba(255,200,87,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,256,256);
+    const tex = new THREE.CanvasTexture(c);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false}));
+    spr.scale.set(scale,scale,1);
+    return spr;
+  }
+
+  // ---------------------------------------------------------------
+  // Earth (fixed at center) + equatorial plane
+  // ---------------------------------------------------------------
+  const EARTH_R = 4.2;
+  const ORBIT_R = 22;
+  const AXIS_LEN = 6.5;
+
+  const earthGroup = new THREE.Object3D(); // fixed at origin, never moves
+  scene.add(earthGroup);
+
+  const earthSpin = new THREE.Object3D(); // spins daily around vertical (Y) axis
+  earthGroup.add(earthSpin);
+
+  const earthMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(EARTH_R, 44, 44),
+    new THREE.MeshPhongMaterial({map: earthTexture(), shininess:8})
+  );
+  earthSpin.add(earthMesh);
+
+  // accent ring hugging Earth's own physical equator
+  const earthEquatorRing = new THREE.Mesh(
+    new THREE.TorusGeometry(EARTH_R, 0.035, 10, 80),
+    new THREE.MeshBasicMaterial({color:0xef476f})
+  );
+  earthEquatorRing.rotation.x = Math.PI/2;
+  earthSpin.add(earthEquatorRing);
+
+  // Earth's rotation axis (fixed, vertical, does not spin)
+  const axisGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0,-EARTH_R*1.35,0), new THREE.Vector3(0,EARTH_R*1.35,0)
+  ]);
+  const earthAxisLine = new THREE.Line(axisGeo, new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.6}));
+  earthGroup.add(earthAxisLine);
+
+  // Earth's equatorial plane, extended out into space (celestial equator), flat & fixed
+  const equatorialDisk = new THREE.Mesh(
+    new THREE.CircleGeometry(ORBIT_R+6, 64),
+    new THREE.MeshBasicMaterial({
+      map: gridTexture('rgba(239,71,111,0.35)'),
+      color:0xef476f, transparent:true, opacity:0.15, side:THREE.DoubleSide, depthWrite:false
+    })
+  );
+  equatorialDisk.rotation.x = Math.PI/2;
+  earthGroup.add(equatorialDisk);
+
+  const ambient = new THREE.AmbientLight(0x2a3550, 0.6);
+  scene.add(ambient);
+
+  // ---------------------------------------------------------------
+  // Ecliptic group: tilted relative to the (fixed) equatorial plane
+  // ---------------------------------------------------------------
+  const eclipticGroup = new THREE.Object3D();
+  scene.add(eclipticGroup);
+
+  const eclipticDisk = new THREE.Mesh(
+    new THREE.CircleGeometry(ORBIT_R+6, 64),
+    new THREE.MeshBasicMaterial({
+      map: gridTexture('rgba(76,201,240,0.35)'),
+      color:0x4cc9f0, transparent:true, opacity:0.16, side:THREE.DoubleSide, depthWrite:false
+    })
+  );
+  eclipticDisk.rotation.x = Math.PI/2;
+  eclipticGroup.add(eclipticDisk);
+
+  const orbitRing = new THREE.Mesh(
+    new THREE.RingGeometry(ORBIT_R-0.05, ORBIT_R+0.05, 128),
+    new THREE.MeshBasicMaterial({color:0x4cc9f0, side:THREE.DoubleSide, transparent:true, opacity:0.55})
+  );
+  orbitRing.rotation.x = Math.PI/2;
+  eclipticGroup.add(orbitRing);
+
+  // Sun, moving along the ecliptic
+  const sunPivot = new THREE.Object3D();
+  eclipticGroup.add(sunPivot);
+  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(1.3, 28, 28), new THREE.MeshBasicMaterial({color:0xffc857}));
+  sunPivot.add(sunMesh);
+  sunPivot.add(sunGlowSprite(9));
+
+  const sunPointLight = new THREE.PointLight(0xfff3d6, 2.2, 0, 0);
+  sunPivot.add(sunPointLight);
+
+  // tilt handle (draggable) -- sits on the ecliptic's own "north pole" direction
+  const poleHandle = new THREE.Mesh(
+    new THREE.SphereGeometry(0.62, 20, 20),
+    new THREE.MeshBasicMaterial({color:0xef476f})
+  );
+  poleHandle.position.set(0, AXIS_LEN, 0);
+  eclipticGroup.add(poleHandle);
+
+  const poleHandleSouth = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 14, 14),
+    new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.4})
+  );
+  poleHandleSouth.position.set(0, -AXIS_LEN*0.95, 0);
+  eclipticGroup.add(poleHandleSouth);
+
+  // ---------------------------------------------------------------
+  // Equinox (diamond) / solstice (ringed sphere) markers, fixed on the ecliptic
+  // ---------------------------------------------------------------
+  function solsticeMarker(){
+    const group = new THREE.Object3D();
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 18), new THREE.MeshBasicMaterial({color:0xffc857}));
+    group.add(core);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.07, 8, 32), new THREE.MeshBasicMaterial({color:0xffc857}));
+    ring.rotation.x = Math.PI/2.4;
+    group.add(ring);
+    return group;
+  }
+  function equinoxMarker(){
+    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.75, 0), new THREE.MeshBasicMaterial({color:0x4cc9f0}));
+    return mesh;
+  }
+
+  const markerDefs = [
+    {deg:0,   name:'December Solstice',  type:'solstice'},
+    {deg:90,  name:'March Equinox',      type:'equinox'},
+    {deg:180, name:'June Solstice',      type:'solstice'},
+    {deg:270, name:'September Equinox',  type:'equinox'}
+  ];
+  const labelLayer = document.getElementById('labelLayer');
+  const markerObjs = markerDefs.map(m => {
+    const rad = THREE.MathUtils.degToRad(m.deg);
+    const localPos = new THREE.Vector3(ORBIT_R*Math.cos(rad), 0, ORBIT_R*Math.sin(rad));
+    const obj = m.type==='solstice' ? solsticeMarker() : equinoxMarker();
+    obj.position.copy(localPos);
+    eclipticGroup.add(obj);
+    const div = document.createElement('div');
+    div.className = 'marker-label ' + m.type;
+    div.textContent = m.name;
+    labelLayer.appendChild(div);
+    return {obj, div};
+  });
+
+  const sunLabelDiv = document.createElement('div');
+  sunLabelDiv.className = 'marker-label sun'; sunLabelDiv.textContent = 'Sun';
+  labelLayer.appendChild(sunLabelDiv);
+
+  const earthLabelDiv = document.createElement('div');
+  earthLabelDiv.className = 'marker-label earth'; earthLabelDiv.textContent = 'Earth';
+  labelLayer.appendChild(earthLabelDiv);
+
+  const poleHintDiv = document.createElement('div');
+  poleHintDiv.className = 'pole-hint'; poleHintDiv.textContent = 'drag to tilt';
+  labelLayer.appendChild(poleHintDiv);
+
+  // Sun-Earth connector line
+  const connGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
+  const connLine = new THREE.Line(connGeo, new THREE.LineDashedMaterial({color:0xffc857, dashSize:1, gapSize:0.7, transparent:true, opacity:0.35}));
+  scene.add(connLine);
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  const state = { theta: 23.5, lambda: 0, spin: 0, playing: false, speed: 1.0 };
+
+  function axisDirection(thetaDeg){
+    const t = THREE.MathUtils.degToRad(thetaDeg);
+    return new THREE.Vector3(Math.sin(t), Math.cos(t), 0);
+  }
+  function applyTilt(){
+    const dir = axisDirection(state.theta);
+    eclipticGroup.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir));
+  }
+  function applySunPosition(){
+    const rad = THREE.MathUtils.degToRad(state.lambda);
+    sunPivot.position.set(ORBIT_R*Math.cos(rad), 0, ORBIT_R*Math.sin(rad));
+  }
+  applyTilt();
+  applySunPosition();
+
+  // ---------------------------------------------------------------
+  // UI wiring
+  // ---------------------------------------------------------------
+  const tiltSlider = document.getElementById('tiltSlider');
+  const tiltVal = document.getElementById('tiltVal');
+  const lamSlider = document.getElementById('lamSlider');
+  const lamVal = document.getElementById('lamVal');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedVal = document.getElementById('speedVal');
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const seasonLabel = document.getElementById('seasonLabel');
+  const dayLabel = document.getElementById('dayLabel');
+  const decLabel = document.getElementById('decLabel');
+  const illumNote = document.getElementById('illumNote');
+
+  tiltSlider.addEventListener('input', () => {
+    state.theta = parseFloat(tiltSlider.value);
+    tiltVal.textContent = state.theta.toFixed(1) + '°';
+    applyTilt(); updateInfo();
+  });
+  lamSlider.addEventListener('input', () => {
+    state.lambda = parseFloat(lamSlider.value);
+    lamVal.textContent = Math.round(state.lambda) + '°';
+    state.playing = false; playBtn.textContent = '▶ Play year';
+    applySunPosition(); updateInfo();
+  });
+  speedSlider.addEventListener('input', () => {
+    state.speed = parseFloat(speedSlider.value);
+    speedVal.textContent = state.speed.toFixed(1) + '×';
+  });
+  playBtn.addEventListener('click', () => {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? '❚❚ Pause year' : '▶ Play year';
+  });
+  resetBtn.addEventListener('click', () => {
+    state.theta = 23.5; state.lambda = 0; state.playing = false;
+    tiltSlider.value = 23.5; lamSlider.value = 0;
+    tiltVal.textContent = '23.5°'; lamVal.textContent = '0°';
+    playBtn.textContent = '▶ Play year';
+    applyTilt(); applySunPosition(); updateInfo();
+  });
+
+  function circDist(a,b){ let d = Math.abs(a-b) % 360; return d>180 ? 360-d : d; }
+
+  function updateInfo(){
+    const angles = [0,90,180,270,360];
+    const names = ['December Solstice','March Equinox','June Solstice','September Equinox','December Solstice'];
+    let exact = null;
+    for(let i=0;i<4;i++){ if(circDist(state.lambda, angles[i]) < 2.5){ exact = names[i]; break; } }
+    if(exact){
+      seasonLabel.textContent = exact;
+    } else {
+      let seg = 0;
+      for(let i=0;i<4;i++){ if(state.lambda >= angles[i] && state.lambda < angles[i+1]){ seg = i; break; } }
+      const pct = Math.round((state.lambda - angles[seg]) / (angles[seg+1]-angles[seg]) * 100);
+      seasonLabel.textContent = names[seg] + ' → ' + names[seg+1] + ' (' + pct + '%)';
+    }
+    dayLabel.textContent = Math.round((355 + state.lambda/360*365)) % 365;
+
+    const thetaRad = THREE.MathUtils.degToRad(state.theta);
+    const lamRad = THREE.MathUtils.degToRad(state.lambda);
+    const decRad = Math.asin(Math.sin(thetaRad) * Math.cos(lamRad));
+    const decDeg = THREE.MathUtils.radToDeg(decRad);
+    decLabel.textContent = (decDeg>=0?'+':'') + decDeg.toFixed(1) + '°';
+
+    if(decDeg > 0.3){
+      illumNote.textContent = 'The Sun sits north of Earth\'s equator — Northern summer, Southern winter.';
+    } else if(decDeg < -0.3){
+      illumNote.textContent = 'The Sun sits south of Earth\'s equator — Northern winter, Southern summer.';
+    } else {
+      illumNote.textContent = 'The Sun crosses Earth\'s equator — roughly equal day and night everywhere.';
+    }
+  }
+  updateInfo();
+
+  // ---------------------------------------------------------------
+  // Camera orbit controls + pole-tilt drag
+  // ---------------------------------------------------------------
+  let camAzimuth = 0.55, camPolar = 1.15, camRadius = 46;
+  const MIN_RADIUS = 14, MAX_RADIUS = 110;
+
+  function updateCamera(){
+    camPolar = Math.max(0.08, Math.min(Math.PI-0.08, camPolar));
+    const x = camRadius * Math.sin(camPolar) * Math.sin(camAzimuth);
+    const y = camRadius * Math.cos(camPolar);
+    const z = camRadius * Math.sin(camPolar) * Math.cos(camAzimuth);
+    camera.position.set(x,y,z);
+    camera.lookAt(0,0,0);
+  }
+  updateCamera();
+
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const canvas = renderer.domElement;
+  let dragMode = null, lastX = 0, lastY = 0, poleHintFaded = false;
+
+  function pointerToNdc(e){
+    const rect = canvas.getBoundingClientRect();
+    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    pointerToNdc(e);
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.intersectObject(poleHandle, false);
+    dragMode = hit.length ? 'tilt' : 'orbit';
+    canvas.classList.add(dragMode === 'tilt' ? 'tilting' : 'dragging');
+    lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+    if(dragMode === 'tilt' && !poleHintFaded){ poleHintDiv.style.opacity = '0'; poleHintFaded = true; }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if(!dragMode) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    if(dragMode === 'orbit'){
+      camAzimuth -= dx * 0.006;
+      camPolar   -= dy * 0.006;
+      updateCamera();
+    } else if(dragMode === 'tilt'){
+      state.theta = Math.max(0, Math.min(90, state.theta - dy*0.28));
+      tiltSlider.value = state.theta;
+      tiltVal.textContent = state.theta.toFixed(1) + '°';
+      applyTilt(); updateInfo();
+    }
+  });
+
+  function endDrag(){ if(dragMode){ canvas.classList.remove('dragging','tilting'); } dragMode = null; }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave', endDrag);
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    camRadius = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, camRadius + e.deltaY*0.04));
+    updateCamera();
+  }, {passive:false});
+
+  // ---------------------------------------------------------------
+  // Screen-space label projection
+  // ---------------------------------------------------------------
+  const v3 = new THREE.Vector3();
+  function project(pos, div, offsetY){
+    v3.copy(pos).project(camera);
+    if(v3.z > 1){ div.style.display = 'none'; return; }
+    div.style.display = '';
+    const x = (v3.x*0.5+0.5) * window.innerWidth;
+    const y = (-v3.y*0.5+0.5) * window.innerHeight;
+    div.style.left = x + 'px';
+    div.style.top = (y + (offsetY||0)) + 'px';
+  }
+
+  // ---------------------------------------------------------------
+  // Animation loop
+  // ---------------------------------------------------------------
+  let lastTime = performance.now();
+  const worldPos = new THREE.Vector3();
+  function animate(now){
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, (now - lastTime)/1000);
+    lastTime = now;
+
+    if(state.playing){
+      state.lambda = (state.lambda + dt*state.speed*18) % 360;
+      lamSlider.value = state.lambda;
+      lamVal.textContent = Math.round(state.lambda) + '°';
+      applySunPosition();
+      updateInfo();
+    }
+
+    state.spin += dt * 1.4;
+    earthSpin.rotation.y = state.spin;
+
+    project(new THREE.Vector3(0,0,0), earthLabelDiv, -EARTH_R*22);
+
+    sunPivot.getWorldPosition(worldPos);
+    project(worldPos, sunLabelDiv, -14);
+    const sunWorld = worldPos.clone();
+
+    poleHandle.getWorldPosition(worldPos);
+    project(worldPos, poleHintDiv, -6);
+
+    markerObjs.forEach(m => { m.obj.getWorldPosition(worldPos); project(worldPos.clone(), m.div, -10); });
+
+    const posAttr = connLine.geometry.attributes.position;
+    posAttr.setXYZ(0, 0,0,0);
+    posAttr.setXYZ(1, sunWorld.x, sunWorld.y, sunWorld.z);
+    posAttr.needsUpdate = true;
+    connLine.computeLineDistances();
+
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(animate);
+
+})();
+</script>
+</body>
+</html>
