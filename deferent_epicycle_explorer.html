@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deferent &amp; Epicycle — Interactive Model</title>
+<style>
+  :root{
+    --bg:#060a14;
+    --panel:rgba(13,18,32,0.85);
+    --panel-border:rgba(255,255,255,0.09);
+    --text:#e8ecf4;
+    --text-dim:#9aa7b5;
+    --gold:#ffc857;
+    --cyan:#4cc9f0;
+    --violet:#b892ff;
+    --rose:#ef476f;
+    --track:#1b2333;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);overflow:hidden;
+    font-family:'Space Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);}
+  #canvas-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  canvas{display:block;max-width:100%;max-height:100%;}
+
+  .topbar{position:fixed;top:0;left:0;right:0;padding:22px 26px;pointer-events:none;z-index:5;}
+  .topbar h1{margin:0;font-size:20px;font-weight:600;}
+  .topbar p{margin:4px 0 0;font-size:13px;color:var(--text-dim);max-width:460px;line-height:1.5;}
+
+  .panel{position:fixed;left:22px;bottom:22px;width:330px;max-width:calc(100vw - 44px);
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;
+    padding:18px 20px 16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    z-index:5;box-shadow:0 20px 50px rgba(0,0,0,0.35);max-height:calc(100vh - 44px);overflow-y:auto;}
+
+  .section-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin:0 0 10px;font-weight:700;}
+  .row{margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  .row-label{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--text-dim);margin-bottom:6px;}
+  .row-label .val{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--track);border-radius:2px;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;box-shadow:0 0 0 3px rgba(76,201,240,0.15);}
+  input[type=range].violet-thumb::-webkit-slider-thumb{background:var(--violet);box-shadow:0 0 0 3px rgba(184,146,255,0.15);}
+  input[type=range].gold-thumb::-webkit-slider-thumb{background:var(--gold);box-shadow:0 0 0 3px rgba(255,200,87,0.15);}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;}
+  input[type=range].violet-thumb::-moz-range-thumb{background:var(--violet);}
+  input[type=range].gold-thumb::-moz-range-thumb{background:var(--gold);}
+
+  .divider{height:1px;background:var(--panel-border);margin:14px 0;}
+
+  .radio-group{display:flex;gap:16px;font-size:13px;}
+  .radio-group label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text-dim);}
+  .radio-group input[type=radio]{accent-color:var(--rose);width:15px;height:15px;cursor:pointer;}
+  .radio-group label.active-choice{color:var(--text);font-weight:600;}
+
+  .btn-row{display:flex;gap:8px;margin-top:2px;}
+  button{font-family:inherit;font-size:12.5px;font-weight:600;background:#131a2c;color:var(--text);border:1px solid var(--panel-border);border-radius:8px;padding:8px 12px;cursor:pointer;transition:border-color .15s;}
+  button:hover{border-color:var(--cyan);}
+  button.primary{background:var(--cyan);color:#04121b;border-color:var(--cyan);}
+  button.primary:hover{opacity:.9;}
+
+  .info{font-size:12.5px;line-height:1.7;color:var(--text-dim);}
+  .info strong{color:var(--text);}
+  .note{font-size:11.5px;color:var(--text-dim);line-height:1.5;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"><canvas id="mainCanvas" width="700" height="700"></canvas></div>
+
+<div class="topbar">
+  <h1>Deferent &amp; Epicycle</h1>
+  <p>The ancient trick for explaining a planet's backward "retrograde" loop without the Sun at the center: ride a small circle (the epicycle) whose own center travels around a big circle (the deferent).</p>
+</div>
+
+<div class="panel">
+  <p class="section-title">Motion</p>
+  <div class="row">
+    <div class="row-label"><span><span class="swatch" style="background:var(--gold)"></span>Deferent angular velocity</span><span class="value" id="defSpeedVal">20°/s</span></div>
+    <input type="range" id="defSpeedSlider" class="gold-thumb" min="-180" max="180" step="1" value="20" aria-label="Deferent angular velocity">
+  </div>
+  <div class="row">
+    <div class="row-label"><span><span class="swatch" style="background:var(--violet)"></span>Epicycle angular velocity</span><span class="value" id="epiSpeedVal">140°/s</span></div>
+    <input type="range" id="epiSpeedSlider" class="violet-thumb" min="-720" max="720" step="1" value="140" aria-label="Epicycle angular velocity">
+  </div>
+
+  <div class="divider"></div>
+
+  <p class="section-title">Radii (optional)</p>
+  <div class="row">
+    <div class="row-label"><span><span class="swatch" style="background:var(--gold)"></span>Deferent radius</span><span class="value" id="defRadiusVal">180</span></div>
+    <input type="range" id="defRadiusSlider" class="gold-thumb" min="80" max="230" step="1" value="180" aria-label="Deferent radius">
+  </div>
+  <div class="row">
+    <div class="row-label"><span><span class="swatch" style="background:var(--violet)"></span>Epicycle radius</span><span class="value" id="epiRadiusVal">70</span></div>
+    <input type="range" id="epiRadiusSlider" class="violet-thumb" min="10" max="130" step="1" value="70" aria-label="Epicycle radius">
+  </div>
+
+  <div class="divider"></div>
+
+  <p class="section-title">Traced path</p>
+  <div class="radio-group" id="traceRadioGroup">
+    <label class="active-choice"><input type="radio" name="trace" value="on" checked> On</label>
+    <label><input type="radio" name="trace" value="off"> Off</label>
+  </div>
+
+  <div class="btn-row" style="margin-top:14px;">
+    <button class="primary" id="playBtn">❚❚ Pause</button>
+    <button id="clearBtn">Clear trace</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="info">
+    <div>Deferent angle: <strong id="thetaDVal">0.0°</strong> &nbsp;·&nbsp; Epicycle angle: <strong id="thetaEVal">0.0°</strong></div>
+    <div>Speed ratio (ω<sub>e</sub>/ω<sub>d</sub>): <strong id="ratioVal">—</strong></div>
+    <div>Retrograde loops expected: <strong id="loopVal">—</strong></div>
+  </div>
+  <p class="note">A retrograde loop appears whenever the epicycle's own edge-speed (R<sub>e</sub>×ω<sub>e</sub>) outpaces the deferent's (R<sub>d</sub>×ω<sub>d</sub>) — exactly the geometric trick ancient astronomers used to reproduce a planet's backward motion in the sky.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const canvas = document.getElementById('mainCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2;
+
+  const COLORS = {
+    bg: '#060a14',
+    earth: '#e8ecf4',
+    deferent: '#ffc857',
+    epicycle: '#b892ff',
+    planet: '#ef476f',
+    trace: '#4cc9f0',
+  };
+
+  const defSpeedSlider = document.getElementById('defSpeedSlider');
+  const defSpeedVal = document.getElementById('defSpeedVal');
+  const epiSpeedSlider = document.getElementById('epiSpeedSlider');
+  const epiSpeedVal = document.getElementById('epiSpeedVal');
+  const defRadiusSlider = document.getElementById('defRadiusSlider');
+  const defRadiusVal = document.getElementById('defRadiusVal');
+  const epiRadiusSlider = document.getElementById('epiRadiusSlider');
+  const epiRadiusVal = document.getElementById('epiRadiusVal');
+  const playBtn = document.getElementById('playBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const thetaDValEl = document.getElementById('thetaDVal');
+  const thetaEValEl = document.getElementById('thetaEVal');
+  const ratioValEl = document.getElementById('ratioVal');
+  const loopValEl = document.getElementById('loopVal');
+  const traceRadios = document.querySelectorAll('input[name=trace]');
+  const traceLabels = document.querySelectorAll('#traceRadioGroup label');
+
+  const state = {
+    thetaD: 0, thetaE: 0,
+    wd: parseFloat(defSpeedSlider.value),
+    we: parseFloat(epiSpeedSlider.value),
+    Rd: parseFloat(defRadiusSlider.value),
+    Re: parseFloat(epiRadiusSlider.value),
+    traceOn: true,
+    playing: true,
+  };
+
+  const MAX_TRACE_POINTS = 4000;
+  let trace = [];
+
+  function updateReadouts(){
+    defSpeedVal.textContent = state.wd.toFixed(0) + '°/s';
+    epiSpeedVal.textContent = state.we.toFixed(0) + '°/s';
+    defRadiusVal.textContent = state.Rd.toFixed(0);
+    epiRadiusVal.textContent = state.Re.toFixed(0);
+
+    const ratio = state.wd !== 0 ? (state.we/state.wd) : Infinity;
+    ratioValEl.textContent = isFinite(ratio) ? ratio.toFixed(2) : '∞';
+
+    const edgeDeferent = Math.abs(state.Rd * state.wd);
+    const edgeEpicycle = Math.abs(state.Re * state.we);
+    const loopsExpected = edgeEpicycle > edgeDeferent;
+    loopValEl.textContent = loopsExpected ? 'Yes' : 'No';
+    loopValEl.style.color = loopsExpected ? '#ffc857' : '#9aa7b5';
+  }
+
+  defSpeedSlider.addEventListener('input', () => { state.wd = parseFloat(defSpeedSlider.value); updateReadouts(); });
+  epiSpeedSlider.addEventListener('input', () => { state.we = parseFloat(epiSpeedSlider.value); updateReadouts(); });
+  defRadiusSlider.addEventListener('input', () => { state.Rd = parseFloat(defRadiusSlider.value); updateReadouts(); });
+  epiRadiusSlider.addEventListener('input', () => { state.Re = parseFloat(epiRadiusSlider.value); updateReadouts(); });
+
+  traceRadios.forEach(r => r.addEventListener('change', (e) => {
+    state.traceOn = (e.target.value === 'on');
+    traceLabels.forEach(l => l.classList.toggle('active-choice', l.querySelector('input').value === e.target.value));
+  }));
+
+  playBtn.addEventListener('click', () => {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? '❚❚ Pause' : '▶ Play';
+  });
+  clearBtn.addEventListener('click', () => { trace = []; });
+
+  function toCanvas(x, y){ return [cx + x, cy - y]; } // flip Y so "up" is up
+
+  function draw(){
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // deferent circle
+    ctx.beginPath();
+    ctx.setLineDash([6,5]);
+    ctx.strokeStyle = COLORS.deferent;
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1.6;
+    ctx.arc(cx, cy, state.Rd, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+
+    // epicycle center position
+    const thetaDrad = state.thetaD * Math.PI/180;
+    const ecx = state.Rd * Math.cos(thetaDrad);
+    const ecy = state.Rd * Math.sin(thetaDrad);
+
+    // epicycle circle
+    const [ecxC, ecyC] = toCanvas(ecx, ecy);
+    ctx.beginPath();
+    ctx.setLineDash([5,4]);
+    ctx.strokeStyle = COLORS.epicycle;
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1.6;
+    ctx.arc(ecxC, ecyC, state.Re, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+
+    // planet position
+    const thetaErad = state.thetaE * Math.PI/180;
+    const px = ecx + state.Re * Math.cos(thetaErad);
+    const py = ecy + state.Re * Math.sin(thetaErad);
+    const [pxC, pyC] = toCanvas(px, py);
+
+    // trace
+    if(state.traceOn){
+      trace.push([pxC, pyC]);
+      if(trace.length > MAX_TRACE_POINTS) trace.shift();
+      ctx.beginPath();
+      ctx.strokeStyle = COLORS.trace;
+      ctx.lineWidth = 1.8;
+      ctx.globalAlpha = 0.75;
+      for(let i=0;i<trace.length;i++){
+        const [tx,ty] = trace[i];
+        if(i===0) ctx.moveTo(tx,ty); else ctx.lineTo(tx,ty);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // radius vectors: Earth -> epicycle center
+    const [originC_x, originC_y] = toCanvas(0,0);
+    ctx.beginPath();
+    ctx.strokeStyle = COLORS.deferent;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.85;
+    ctx.moveTo(originC_x, originC_y);
+    ctx.lineTo(ecxC, ecyC);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // epicycle center -> planet
+    ctx.beginPath();
+    ctx.strokeStyle = COLORS.epicycle;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.85;
+    ctx.moveTo(ecxC, ecyC);
+    ctx.lineTo(pxC, pyC);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Earth
+    ctx.beginPath();
+    ctx.fillStyle = COLORS.earth;
+    ctx.arc(originC_x, originC_y, 7, 0, Math.PI*2);
+    ctx.fill();
+    ctx.font = '12px Arial';
+    ctx.fillStyle = COLORS.earth;
+    ctx.fillText('Earth', originC_x+10, originC_y-10);
+
+    // epicycle center marker
+    ctx.beginPath();
+    ctx.fillStyle = COLORS.deferent;
+    ctx.arc(ecxC, ecyC, 4, 0, Math.PI*2);
+    ctx.fill();
+
+    // planet
+    ctx.beginPath();
+    ctx.fillStyle = COLORS.planet;
+    ctx.arc(pxC, pyC, 8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.font = 'bold 12px Arial';
+    ctx.fillStyle = COLORS.planet;
+    ctx.fillText('Planet', pxC+11, pyC-11);
+
+    thetaDValEl.textContent = ((state.thetaD%360+360)%360).toFixed(1) + '°';
+    thetaEValEl.textContent = ((state.thetaE%360+360)%360).toFixed(1) + '°';
+  }
+
+  let lastTime = performance.now();
+  function animate(now){
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, (now-lastTime)/1000);
+    lastTime = now;
+
+    if(state.playing){
+      state.thetaD += state.wd * dt;
+      state.thetaE += state.we * dt;
+    }
+    draw();
+  }
+
+  updateReadouts();
+  requestAnimationFrame(animate);
+
+  window.addEventListener('resize', () => {});
+
+})();
+</script>
+</body>
+</html>

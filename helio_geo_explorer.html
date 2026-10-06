@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heliocentric vs. Geocentric — Interactive Model</title>
+<style>
+  :root{
+    --bg:#060a14;
+    --panel:rgba(13,18,32,0.94);
+    --border:rgba(255,255,255,0.09);
+    --text:#e8ecf4;
+    --dim:#9aa7b5;
+    --gold:#ffc857;
+    --cyan:#4cc9f0;
+    --violet:#b892ff;
+    --rose:#ef476f;
+    --track:#1b2333;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:'Space Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;}
+
+  .app{display:flex;height:100vh;}
+  .stage{position:relative;flex:1;min-width:0;min-height:0;
+    background:radial-gradient(ellipse at 50% 45%,#0b1226 0%,#060a14 72%);}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+  .badge{position:absolute;top:18px;left:20px;display:flex;align-items:center;gap:9px;
+    padding:8px 15px;border-radius:999px;background:rgba(13,18,32,0.82);
+    border:1px solid var(--border);font-size:13px;font-weight:600;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+  .badge-dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold);transition:background .4s,box-shadow .4s;}
+  .badge.geo .badge-dot{background:var(--cyan);box-shadow:0 0 10px var(--cyan);}
+  .scale-note{position:absolute;left:20px;bottom:16px;font-size:11.5px;color:var(--dim);max-width:340px;line-height:1.5;}
+
+  .panel{width:350px;flex:none;overflow-y:auto;background:var(--panel);
+    border-left:1px solid var(--border);padding:24px 22px 28px;}
+  .panel h1{margin:0 0 4px;font-size:20px;font-weight:700;}
+  .lede{margin:0 0 20px;font-size:13px;color:var(--dim);line-height:1.55;}
+
+  .section-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 10px;font-weight:700;}
+  .divider{height:1px;background:var(--border);margin:20px 0;}
+
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#0c1220;
+    border:1px solid var(--border);border-radius:13px;padding:4px;}
+  .seg button{font-family:inherit;font-size:13.5px;font-weight:700;color:var(--dim);background:transparent;
+    border:none;border-radius:10px;padding:10px 8px;cursor:pointer;transition:background .25s,color .25s;line-height:1.3;}
+  .seg button small{display:block;font-size:11px;font-weight:500;opacity:.8;margin-top:2px;}
+  .seg button:hover{color:var(--text);}
+  .seg button.helio.active{background:var(--gold);color:#241a02;}
+  .seg button.geo.active{background:var(--cyan);color:#04121b;}
+  .seg button:focus-visible{outline:2px solid var(--violet);outline-offset:2px;}
+
+  .explain{margin:14px 0 0;font-size:13px;line-height:1.6;color:var(--dim);min-height:7.4em;}
+  .explain strong{color:var(--text);}
+
+  .btn-row{display:flex;gap:8px;margin-bottom:16px;}
+  button.plain{font-family:inherit;font-size:12.5px;font-weight:600;background:#131a2c;color:var(--text);
+    border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;transition:border-color .15s;}
+  button.plain:hover{border-color:var(--cyan);}
+  button.plain.primary{background:var(--cyan);color:#04121b;border-color:var(--cyan);}
+  button.plain.primary:hover{opacity:.9;}
+
+  .row-label{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--dim);margin-bottom:6px;}
+  .row-label .val{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--track);border-radius:2px;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;box-shadow:0 0 0 3px rgba(76,201,240,0.15);}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #0a0f1c;}
+  .clock{margin-top:14px;font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums;}
+  .clock strong{color:var(--text);}
+
+  .body-row{display:grid;grid-template-columns:10px 62px 1fr auto;align-items:center;gap:8px;
+    padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12.5px;}
+  .body-row:last-child{border-bottom:none;}
+  .body-row .dot{width:10px;height:10px;border-radius:50%;}
+  .body-row .bname{font-weight:600;}
+  .body-row .rate{color:var(--dim);font-variant-numeric:tabular-nums;font-size:12px;}
+  .body-row .rate.retro{color:var(--rose);font-weight:700;}
+  .body-row label.trail{display:flex;align-items:center;gap:5px;color:var(--dim);font-size:11.5px;cursor:pointer;}
+  .body-row label.trail input{accent-color:var(--cyan);width:14px;height:14px;cursor:pointer;margin:0;}
+
+  .note{margin:14px 0 0;font-size:11.5px;color:var(--dim);line-height:1.6;}
+  .note strong{color:var(--text);}
+
+  @media (max-width:860px){
+    .app{flex-direction:column;height:auto;min-height:100vh;}
+    .stage{flex:none;height:min(100vw,76vh);}
+    .panel{width:auto;border-left:none;border-top:1px solid var(--border);overflow:visible;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <main class="stage" id="stage">
+    <canvas id="cv" role="img" aria-label="Four planets orbiting the Sun, shown from a Sun-centered point of view"></canvas>
+    <div class="badge" id="badge"><span class="badge-dot"></span><span id="badgeText">Heliocentric · Sun at center</span></div>
+    <div class="scale-note">Not to scale: orbit sizes and planet sizes are schematic. Orbital periods are the real ones.</div>
+  </main>
+
+  <aside class="panel">
+    <h1>Two Points of View</h1>
+    <p class="lede">The same four planets, moving in exactly the same way. Only the point of view changes.</p>
+
+    <p class="section-title">Point of view</p>
+    <div class="seg" role="group" aria-label="Choose reference frame">
+      <button id="btnHelio" class="helio active" aria-pressed="true">Heliocentric<small>Sun fixed at center</small></button>
+      <button id="btnGeo" class="geo" aria-pressed="false">Geocentric<small>Earth fixed at center</small></button>
+    </div>
+    <p class="explain" id="explain"></p>
+
+    <div class="divider"></div>
+
+    <p class="section-title">Motion</p>
+    <div class="btn-row">
+      <button class="plain primary" id="playBtn">❚❚ Pause</button>
+      <button class="plain" id="restartBtn">Restart</button>
+    </div>
+    <div class="row-label"><span>Speed</span><span class="val" id="speedVal">60 days/s</span></div>
+    <input type="range" id="speedSlider" min="5" max="300" step="5" value="60" aria-label="Simulation speed in days per second">
+    <div class="clock" id="clock">Day <strong>0</strong> · <strong>0.00</strong> Earth years</div>
+
+    <div class="divider"></div>
+
+    <p class="section-title">Bodies · motion as seen from Earth</p>
+    <div id="bodies"></div>
+    <p class="note"><strong>Direct</strong> motion is the usual eastward drift against the stars; <strong>retrograde</strong> means it briefly runs backward. Switch to the geocentric view with trails on to see where those backward loops come from.</p>
+    <p class="note">Because the periods are real, the loops recur on schedule — Mars about every 26 months — though their sizes are schematic.</p>
+  </aside>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const D2R = Math.PI/180;
+  const WORLD_HALF = 390;          // world units from center to the edge of the view
+  const TRANSITION_SECONDS = 1.6;  // time to glide between the two points of view
+
+  // ---------------------------------------------------------------
+  // Bodies. Radii and sizes are schematic; periods are real (days).
+  // ---------------------------------------------------------------
+  const SUN = {name:'Sun', color:'#ffc857', size:15, trailDays:365.26, isSun:true};
+  const PLANETS = [
+    {name:'Mercury', R:55,  P:87.97,  th0:120, color:'#c2bdb4', size:5,   trailDays:115.9},
+    {name:'Venus',   R:95,  P:224.70, th0:250, color:'#f3d58a', size:7.5, trailDays:583.9},
+    {name:'Earth',   R:135, P:365.26, th0:0,   color:'#4cc9f0', size:8,   trailDays:365.26},
+    {name:'Mars',    R:185, P:686.98, th0:0,   color:'#ef6b4a', size:6.5, trailDays:779.9},
+  ];
+  const EARTH = PLANETS[2];
+  const ALL = [SUN].concat(PLANETS);
+  ALL.forEach(b => {
+    const n = parseInt(b.color.slice(1), 16);
+    b.rgb = ((n>>16)&255) + ',' + ((n>>8)&255) + ',' + (n&255);
+  });
+
+  // Counterclockwise orbits (viewed from above), like every planet in the real solar system
+  function helio(b, t){
+    const a = (b.th0 + 360*t/b.P) * D2R;
+    return [b.R*Math.cos(a), b.R*Math.sin(a)];
+  }
+  function worldPos(b, t){ return b.isSun ? [0,0] : helio(b, t); }
+
+  // Where a body is drawn: its Sun-centered position minus s × Earth's position.
+  // s = 0 -> Sun at center.  s = 1 -> Earth at center.  Values in between
+  // glide the "camera" from one to the other.
+  function dispWorld(b, t, s){
+    const p = worldPos(b, t), e = helio(EARTH, t);
+    return [p[0] - s*e[0], p[1] - s*e[1]];
+  }
+
+  // Apparent motion as seen from Earth (degrees of longitude per day; + = direct)
+  function appLon(b, t){
+    const p = worldPos(b, t), e = helio(EARTH, t);
+    return Math.atan2(p[1]-e[1], p[0]-e[0]);
+  }
+  function appRateDeg(b, t){
+    const d = 0.5;
+    let df = appLon(b, t+d) - appLon(b, t-d);
+    df = Math.atan2(Math.sin(df), Math.cos(df));
+    return df/(2*d)/D2R;
+  }
+
+  // ---------------------------------------------------------------
+  // Elements
+  // ---------------------------------------------------------------
+  const stage = document.getElementById('stage');
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const badge = document.getElementById('badge');
+  const badgeText = document.getElementById('badgeText');
+  const btnHelio = document.getElementById('btnHelio');
+  const btnGeo = document.getElementById('btnGeo');
+  const explainEl = document.getElementById('explain');
+  const playBtn = document.getElementById('playBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedVal = document.getElementById('speedVal');
+  const clockEl = document.getElementById('clock');
+  const bodiesEl = document.getElementById('bodies');
+
+  const TEXT = {
+    helio: {
+      badge: 'Heliocentric · Sun at center',
+      aria:  'Four planets orbiting the Sun, shown from a Sun-centered point of view',
+      html:  '<strong>The Sun is fixed.</strong> Each planet circles it at its own steady pace — Mercury fastest, Mars slowest. Mars only <em>seems</em> to loop backward because Earth, on the inside track, overtakes it.'
+    },
+    geo: {
+      badge: 'Geocentric · Earth at center',
+      aria:  'The same planets shown from an Earth-centered point of view: the Sun circles Earth and the planets circle the Sun, tracing looping paths',
+      html:  '<strong>Earth is held fixed.</strong> The Sun now circles Earth once a year, and each planet circles the Sun. Nothing physical changed — every planet is in the same place relative to the others — but the paths seen from Earth now loop, like the epicycles Ptolemy\'s model was built to reproduce.'
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  const state = {
+    t: 0,                 // simulated days
+    playing: true,
+    speed: parseFloat(speedSlider.value),   // days per second
+    progress: 0,          // 0 = heliocentric, 1 = geocentric (animated)
+    target: 0,
+    trails: {}
+  };
+  ALL.forEach(b => { state.trails[b.name] = true; });
+
+  // ---------------------------------------------------------------
+  // Legend rows (built from the body list)
+  // ---------------------------------------------------------------
+  const rateEls = {};
+  ALL.forEach(b => {
+    const row = document.createElement('div');
+    row.className = 'body-row';
+    row.innerHTML =
+      '<span class="dot" style="background:' + b.color + '"></span>' +
+      '<span class="bname">' + b.name + '</span>' +
+      '<span class="rate" id="rate-' + b.name + '">—</span>' +
+      '<label class="trail"><input type="checkbox" checked data-body="' + b.name + '"><span>trail</span></label>';
+    bodiesEl.appendChild(row);
+    rateEls[b.name] = row.querySelector('.rate');
+    row.querySelector('input').addEventListener('change', e => { state.trails[b.name] = e.target.checked; });
+  });
+
+  function updateLegend(){
+    ALL.forEach(b => {
+      const el = rateEls[b.name];
+      if(b === EARTH){ el.textContent = 'observer'; el.className = 'rate'; return; }
+      const r = appRateDeg(b, state.t);
+      const retro = r < 0;
+      el.textContent = (retro ? '−' : '+') + Math.abs(r).toFixed(2) + '°/day · ' + (retro ? 'retrograde' : 'direct');
+      el.className = 'rate' + (retro ? ' retro' : '');
+    });
+    const years = state.t/EARTH.P;
+    clockEl.innerHTML = 'Day <strong>' + Math.floor(state.t).toLocaleString() + '</strong> · <strong>' + years.toFixed(2) + '</strong> Earth years';
+  }
+
+  // ---------------------------------------------------------------
+  // Controls
+  // ---------------------------------------------------------------
+  function setFrame(mode){
+    const geo = (mode === 'geo');
+    state.target = geo ? 1 : 0;
+    btnHelio.classList.toggle('active', !geo);
+    btnGeo.classList.toggle('active', geo);
+    btnHelio.setAttribute('aria-pressed', String(!geo));
+    btnGeo.setAttribute('aria-pressed', String(geo));
+    badge.classList.toggle('geo', geo);
+    badgeText.textContent = TEXT[mode].badge;
+    explainEl.innerHTML = TEXT[mode].html;
+    cv.setAttribute('aria-label', TEXT[mode].aria);
+  }
+  btnHelio.addEventListener('click', () => setFrame('helio'));
+  btnGeo.addEventListener('click', () => setFrame('geo'));
+
+  playBtn.addEventListener('click', () => {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? '❚❚ Pause' : '▶ Play';
+    updateLegend();   // make the readout match the frozen picture exactly
+  });
+  restartBtn.addEventListener('click', () => { state.t = 0; updateLegend(); });
+
+  function updateSpeedLabel(){
+    speedVal.textContent = state.speed + ' days/s  ·  1 Earth year ≈ ' + (EARTH.P/state.speed).toFixed(1) + ' s';
+  }
+  speedSlider.addEventListener('input', () => { state.speed = parseFloat(speedSlider.value); updateSpeedLabel(); });
+  updateSpeedLabel();
+  setFrame('helio');
+
+  // ---------------------------------------------------------------
+  // Canvas sizing + fixed background stars
+  // ---------------------------------------------------------------
+  let dpr = 1, K = 1, cx = 0, cy = 0;
+  function resize(){
+    const w = Math.max(200, stage.clientWidth);
+    const h = Math.max(200, stage.clientHeight);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w*dpr);
+    cv.height = Math.round(h*dpr);
+    cx = cv.width/2; cy = cv.height/2;
+    K = Math.min(cv.width, cv.height) / (2*WORLD_HALF);
+  }
+  if(window.ResizeObserver){ new ResizeObserver(resize).observe(stage); }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // deterministic star field (so it doesn't reshuffle on resize)
+  const STARS = [];
+  (function(){
+    let seed = 20240607;
+    function rnd(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed>>>15, 1|seed);
+      t = t + Math.imul(t ^ t>>>7, 61|t) ^ t; return ((t ^ t>>>14)>>>0)/4294967296; }
+    for(let i=0;i<170;i++) STARS.push({u:rnd(), v:rnd(), r:0.6+rnd()*1.1, a:0.15+rnd()*0.55});
+  })();
+
+  // ---------------------------------------------------------------
+  // Drawing
+  // ---------------------------------------------------------------
+  function ease(p){ return p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2; }
+
+  function draw(now){
+    const W = cv.width, H = cv.height;
+    const s = ease(state.progress);
+    const z = 1.45 - 0.45*s;       // zoom out a little as Earth takes the center
+    const t = state.t;
+
+    function scr(dw){ return [cx + dw[0]*z*K, cy - dw[1]*z*K]; }
+
+    ctx.clearRect(0, 0, W, H);
+
+    // distant stars (fixed on screen: they are far too far away to shift)
+    ctx.fillStyle = '#ffffff';
+    for(const st of STARS){
+      ctx.globalAlpha = st.a;
+      ctx.fillRect(st.u*W, st.v*H, st.r*dpr, st.r*dpr);
+    }
+    ctx.globalAlpha = 1;
+
+    // orbit guides: circles centered on wherever the Sun is displayed
+    const sunScr = scr(dispWorld(SUN, t, s));
+    ctx.setLineDash([6*dpr, 6*dpr]);
+    ctx.lineWidth = 1.2*dpr;
+    PLANETS.forEach(b => {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(' + b.rgb + ',0.30)';
+      ctx.arc(sunScr[0], sunScr[1], b.R*z*K, 0, Math.PI*2);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // trails (the last stretch of each body's path, in the current point of view)
+    const N = 160, CHUNKS = 8, PER = N/CHUNKS;
+    ALL.forEach(b => {
+      if(!state.trails[b.name]) return;
+      const pts = [];
+      for(let k=0;k<=N;k++){
+        const ts = t - b.trailDays*(1 - k/N);
+        pts.push(scr(dispWorld(b, ts, s)));
+      }
+      ctx.lineWidth = 1.9*dpr;
+      ctx.lineCap = 'round';
+      for(let c=0;c<CHUNKS;c++){
+        const a = 0.06 + 0.88*Math.pow((c+1)/CHUNKS, 1.6);
+        ctx.beginPath();
+        ctx.moveTo(pts[c*PER][0], pts[c*PER][1]);
+        for(let k=c*PER+1;k<=(c+1)*PER;k++) ctx.lineTo(pts[k][0], pts[k][1]);
+        ctx.strokeStyle = 'rgba(' + b.rgb + ',' + a.toFixed(3) + ')';
+        ctx.stroke();
+      }
+    });
+
+    // Sun–Earth line
+    const earthScr = scr(dispWorld(EARTH, t, s));
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = 1.2*dpr;
+    ctx.moveTo(sunScr[0], sunScr[1]);
+    ctx.lineTo(earthScr[0], earthScr[1]);
+    ctx.stroke();
+
+    // Sun with glow
+    const glowR = 52*K;
+    const g = ctx.createRadialGradient(sunScr[0], sunScr[1], 0, sunScr[0], sunScr[1], glowR);
+    g.addColorStop(0, 'rgba(255,200,87,0.55)');
+    g.addColorStop(1, 'rgba(255,200,87,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(sunScr[0], sunScr[1], glowR, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = SUN.color;
+    ctx.beginPath(); ctx.arc(sunScr[0], sunScr[1], SUN.size*K, 0, Math.PI*2); ctx.fill();
+
+    const labelPx = Math.max(10, Math.round(13*K));
+    const fontMain = '600 ' + labelPx + 'px "Space Grotesk", Arial, sans-serif';
+    const fontSub  = '600 ' + Math.max(9, Math.round(11*K)) + 'px "Space Grotesk", Arial, sans-serif';
+
+    ctx.font = fontMain;
+    ctx.fillStyle = SUN.color;
+    ctx.fillText('Sun', sunScr[0] + (SUN.size+7)*K, sunScr[1] - (SUN.size+3)*K);
+
+    // planets
+    PLANETS.forEach(b => {
+      const p = scr(dispWorld(b, t, s));
+      const retro = (b !== EARTH) && appRateDeg(b, t) < 0;
+
+      if(retro){
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(239,71,111,0.9)';
+        ctx.lineWidth = 2*dpr;
+        ctx.arc(p[0], p[1], (b.size + 5 + 2.2*Math.sin(now/170))*K, 0, Math.PI*2);
+        ctx.stroke();
+      }
+      if(b === EARTH){
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(76,201,240,0.45)';
+        ctx.lineWidth = 1.4*dpr;
+        ctx.arc(p[0], p[1], (b.size + 5)*K, 0, Math.PI*2);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.fillStyle = b.color;
+      ctx.arc(p[0], p[1], b.size*K, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.font = fontMain;
+      ctx.fillStyle = b.color;
+      ctx.fillText(b.name, p[0] + (b.size+8)*K, p[1] - (b.size+4)*K);
+      if(retro){
+        ctx.font = fontSub;
+        ctx.fillStyle = '#ef476f';
+        ctx.fillText('retrograde', p[0] + (b.size+8)*K, p[1] - (b.size+4)*K + labelPx*1.05);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Main loop
+  // ---------------------------------------------------------------
+  let last = null, legendClock = 1e9;
+  function frame(now){
+    requestAnimationFrame(frame);
+    if(last === null) last = now;
+    const dt = Math.min(0.05, Math.max(0, (now - last)/1000));
+    last = now;
+
+    if(state.playing) state.t += state.speed*dt;
+
+    // glide toward the chosen point of view
+    const step = dt/TRANSITION_SECONDS;
+    if(state.progress < state.target) state.progress = Math.min(state.target, state.progress + step);
+    else if(state.progress > state.target) state.progress = Math.max(state.target, state.progress - step);
+
+    legendClock += dt;
+    if(legendClock > 0.12){ updateLegend(); legendClock = 0; }
+
+    draw(now);
+  }
+  updateLegend();
+  requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
