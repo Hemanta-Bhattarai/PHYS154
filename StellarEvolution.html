@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Stellar Life Cycle on the H-R Diagram</title>
+<style>
+:root{
+  --night:#0a0f26; --deep:#060a1c; --card:#121a3d; --card2:#18224d; --line:#2a3672;
+  --ink:#eef0fb; --muted:#aab3da; --gold:#ffcf6b;
+  --massive:#8cc8ff; --sunlike:#ffcf6b; --brown:#d98aa8; --binary:#74e3b8; --birth:#c2a8ff;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:radial-gradient(1100px 600px at 85% -10%,#202b66 0,transparent 60%),var(--night);color:var(--ink);
+  font:16px/1.6 "Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;min-height:100%}
+h1,h2,h3{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;line-height:1.2;margin:0}
+.wrap{max-width:1420px;margin:0 auto;padding:26px 20px 50px}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);color:#e3ecff}
+.lead{color:#d3d9f4;max-width:72ch;margin:.5rem 0 0}
+/* flow strip */
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:20px 0 14px}
+@media (max-width:820px){.flow{grid-template-columns:repeat(2,1fr)}}
+.col{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px}
+.col h3{font-size:1.05rem;margin-bottom:6px;color:var(--gold)}
+.col .arrow{float:right;color:var(--muted);font-family:system-ui}
+.phase{display:flex;align-items:center;gap:8px;width:100%;text-align:left;margin:4px 0;padding:6px 8px;border-radius:10px;
+  background:#0c1331;border:1px solid var(--line);color:var(--ink);font:inherit;font-size:.88rem;cursor:pointer}
+.phase:hover{border-color:#5464b8}
+.phase.sel{border-color:var(--gold);background:#2a2610}
+.phase.dim{opacity:.35}
+.dot{flex:none;width:14px;height:14px;border-radius:50%}
+/* lanes */
+.lanes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 12px}
+.lanes button{font:inherit;font-size:.9rem;color:var(--ink);background:#1d285c;border:1px solid #3a4a98;border-radius:999px;padding:6px 14px;cursor:pointer}
+.lanes button.on{color:#120d00;border-color:transparent}
+.lanes .play{background:linear-gradient(90deg,#ffcf6b,#ff9b6b);color:#1d1400;border:0;font-weight:650}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.node:focus{outline:none}.node:focus-visible .halo{opacity:1}
+/* main grid */
+.main{display:grid;grid-template-columns:1.9fr 1fr;gap:18px;align-items:start}
+@media (max-width:980px){.main{grid-template-columns:1fr}}
+.plotcard{background:var(--deep);border:1px solid var(--line);border-radius:16px;padding:6px;overflow-x:auto}
+svg{display:block;width:100%;min-width:640px;height:auto}
+.node{cursor:pointer}
+.node text{font:13px "Segoe UI",system-ui,sans-serif;fill:#eef0fb;paint-order:stroke;stroke:#060a1c;stroke-width:4px;stroke-linejoin:round}
+.node.dim{opacity:.22}
+.edge{fill:none;stroke-width:2.2;opacity:.28;transition:opacity .2s}
+.edge.lane{opacity:.9}
+.edge.hot{opacity:1;stroke-width:3.4}
+.edge.dim{opacity:.05}
+.edgelab{opacity:.35}.edgelab.lane,.edgelab.hot{opacity:1}.edgelab.dim{opacity:0}
+.zone{fill:rgba(255,255,255,.025);stroke:#3a4a98;stroke-dasharray:5 5;rx:12}
+.zlabel{font:italic 12px Georgia,serif;fill:#8c96c8}
+.axis{font:12px system-ui,sans-serif;fill:#aab3da}
+.grid{stroke:#141d45;stroke-width:1}
+/* info card */
+.info{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:16px;padding:18px 20px;position:sticky;top:12px}
+.pic{height:170px;border-radius:12px;border:1px solid var(--line);display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,#111a40 0,#060a1c 75%);overflow:hidden}
+.pic div{border-radius:50%}
+.tag{display:inline-block;font-size:.8rem;padding:2px 10px;border-radius:999px;border:1px solid var(--line);margin:10px 6px 2px 0;color:var(--muted)}
+.info h2{font-size:1.65rem;margin:.3rem 0 .2rem}
+.info h4{margin:.9rem 0 .15rem;font-size:.95rem;color:var(--gold);font-weight:650}
+.info p{margin:.2rem 0}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.facts div{background:#0a0f26;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:.88rem}
+.facts span{display:block;color:var(--muted);font-size:.75rem}
+.next{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.next button{font:inherit;font-size:.85rem;color:var(--ink);background:#22306a;border:1px solid #3a4a98;border-radius:999px;padding:4px 12px;cursor:pointer}
+.note{color:var(--muted);font-size:.88rem}
+.howto{margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:820px){.howto{grid-template-columns:1fr}}
+.howto div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:.93rem}
+.howto b{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The stellar life cycle on the H-R diagram</h1>
+  <p class="lead">Every stage in a star’s life has a place on the H-R diagram, the chart of brightness against temperature.
+    Click any stage in the life-cycle strip or on the chart to learn what is happening and why it sits where it does.
+    Pick a life path to see the route a star takes.</p>
+
+  <div class="flow" id="flow"></div>
+
+  <div class="lanes" id="lanes">
+    <span class="note">Show a life path:</span>
+    <button data-lane="all" class="on" style="background:#eef0fb">Everything</button>
+    <button data-lane="massive">Massive star (more than 8 Suns)</button>
+    <button data-lane="sunlike">Low-mass star like the Sun</button>
+    <button data-lane="brown">Brown dwarf (a failed star)</button>
+    <button data-lane="binary">White dwarf with a partner</button>
+    <button id="play" class="play">▶ Play this path</button>
+  </div>
+
+  <div class="main">
+    <div class="plotcard"><svg id="hr" viewBox="0 0 1080 760" role="img" aria-label="H-R diagram showing every stage of the stellar life cycle"></svg></div>
+    <aside class="info" aria-live="polite">
+      <div class="pic"><div id="pic"></div></div>
+      <span id="stageTag" class="tag"></span><span id="laneTag" class="tag"></span>
+      <h2 id="name"></h2>
+      <p id="what"></p>
+      <h4>On the H-R diagram</h4>
+      <p id="where"></p>
+      <div class="facts">
+        <div><span>Surface temperature</span><b id="fT"></b></div>
+        <div><span>Brightness (Sun = 1)</span><b id="fL"></b></div>
+        <div><span>Size</span><b id="fR"></b></div>
+        <div><span>How long it lasts</span><b id="fD"></b></div>
+      </div>
+      <h4>Example</h4><p id="ex"></p>
+      <h4>What comes next</h4><div class="next" id="next"></div>
+    </aside>
+  </div>
+
+  <div class="howto">
+    <div><b>Reading the chart.</b> Left is hot and blue, right is cool and red. Up is bright, down is dim. Most stars spend their lives on the diagonal main sequence.</div>
+    <div><b>Dashed boxes</b> hold stages that don’t fit on the chart: some are far too bright (supernovae, for a few weeks), too hot and tiny (neutron stars), too cold (gas clouds), or not shining like a star at all (black holes, gas remnants).</div>
+    <div><b>Mass decides the path.</b> Over 8 Suns: supergiant, supernova, neutron star or black hole. Under 8 Suns: giant, planetary nebula, white dwarf. Under 0.08 Suns: never becomes a real star at all.</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- chart geometry: x = log10(T) running backwards, y = log10(L / Lsun) ---------- */
+const P={x0:230,x1:930,y0:100,y1:600,tL:5.3,tR:3.0,lT:7,lB:-6};
+const X=lt=>P.x0+(P.tL-lt)/(P.tL-P.tR)*(P.x1-P.x0);
+const Y=ll=>P.y0+(P.lT-ll)/(P.lT-P.lB)*(P.y1-P.y0);
+const NS="http://www.w3.org/2000/svg";
+const el=(tag,attrs={},parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;};
+const $=id=>document.getElementById(id);
+
+/* ---------- the stages ----------
+   pos: [log T, log L] on the chart, or off:[x,y] in a box around it.
+   look: colours for the picture (core, glow) and optional style */
+const LANES={massive:"Massive star",sunlike:"Low-mass star",brown:"Brown dwarf",binary:"Binary white dwarf",birth:"Every star"};
+const LANECOL={massive:"#8cc8ff",sunlike:"#ffcf6b",brown:"#d98aa8",binary:"#74e3b8",birth:"#c2a8ff"};
+const S={
+ cloud:{name:"Molecular cloud",stage:"Birth",lanes:["birth","massive","sunlike","brown"],off:[1012,335],r:22,look:["#ff9ad0","#8a5cff","cloud"],
+  what:"A huge, cold, dark cloud of gas (mostly hydrogen) and dust. Clumps inside it start collapsing under their own gravity. This is where every star begins.",
+  where:"Off the chart to the right. At about −260 °C (only 10–20 degrees above absolute zero), it is far too cold to plot, and it isn’t a star yet.",
+  T:"about 10–20 K",L:"no starlight",R:"many light-years across",D:"millions of years",ex:"The Orion Nebula’s dark clouds; the Eagle Nebula’s “Pillars of Creation”.",next:["protostar"]},
+ protostar:{name:"Protostar",stage:"Birth",lanes:["birth","massive","sunlike","brown"],pos:[3.5,0.9],r:13,look:["#ffb36b","#ff6a3d"],
+  what:"A collapsing clump that has heated up and glows, mostly in infrared light, often hidden inside its cloud. It shines from the heat of squeezing, not from fusion.",
+  where:"Upper right of the main sequence: cool (reddish) but fairly bright because it is still large and puffy. As it shrinks, it slides down toward the main sequence.",
+  T:"about 3,000–4,000 K",L:"1–100s",R:"several times the Sun",D:"about 100,000 to 50 million years",ex:"Young stars inside the Orion Nebula.",next:["cluster","massive","lowms","brown"]},
+ cluster:{name:"Open cluster",stage:"Birth",lanes:["birth"],pos:[4.05,1.5],r:12,look:["#bfe0ff","#7aa6ff","cluster"],
+  what:"Stars are usually born in groups. A single cloud can make hundreds of stars at once, all the same age but with different masses: a few big ones and many small ones.",
+  where:"A cluster isn’t one point: its newborn stars land all along the main sequence (the glowing dots) according to their mass. Heavy ones top left, light ones bottom right.",
+  T:"stars of every temperature",L:"stars of every brightness",R:"a few to tens of light-years",D:"hundreds of millions of years before it drifts apart",ex:"The Pleiades (Seven Sisters) and the Beehive cluster.",next:["massive","lowms","brown"]},
+ massive:{name:"Massive star (main sequence)",stage:"Main sequence",lanes:["massive"],pos:[4.52,4.1],r:16,look:["#ffffff","#7fb4ff"],
+  what:"A star born with more than about 8 times the Sun’s mass. It fuses hydrogen in its core so furiously that it blazes blue-white and uses up its fuel in only a few million years.",
+  where:"Top left of the main sequence: very hot and extremely bright.",
+  T:"20,000–40,000 K",L:"10,000 to 1,000,000",R:"5–15 times the Sun",D:"a few million years",ex:"Spica; the stars of Orion’s belt.",next:["rsg"]},
+ lowms:{name:"Low-mass star (main sequence)",stage:"Main sequence",lanes:["sunlike"],pos:[3.762,0],r:12,look:["#fffbe8","#ffcf6b"],
+  what:"A star with less than about 8 times the Sun’s mass, like our Sun. It calmly fuses hydrogen into helium in its core, held steady by the balance between gravity and pressure.",
+  where:"The middle and lower part of the main sequence. The Sun sits right in the middle.",
+  T:"3,000–10,000 K (Sun: 5,800 K)",L:"0.001 to 1,000 (Sun: 1)",R:"0.1 to 3 times the Sun",D:"billions of years (Sun: 10 billion)",ex:"The Sun; Alpha Centauri A; Sirius A.",next:["rg"]},
+ brown:{name:"Brown dwarf",stage:"Main sequence",lanes:["brown"],pos:[3.2,-4.9],r:9,look:["#c25a7a","#6e2346"],
+  what:"A “failed star” with less than 0.08 times the Sun’s mass (about 80 Jupiters). Its centre never gets hot enough for hydrogen fusion, so it just glows dimly and cools forever.",
+  where:"Far bottom right, below the end of the main sequence: very cool and very faint.",
+  T:"about 500–2,500 K",L:"less than 1/10,000",R:"about the size of Jupiter",D:"cools for ever",ex:"Luhman 16, a pair of brown dwarfs only 6.5 light-years away.",next:[]},
+ rsg:{name:"Red supergiant",stage:"Old age",lanes:["massive"],pos:[3.55,5.15],r:22,look:["#ffc08a","#e0402b"],
+  what:"When a massive star runs out of hydrogen in its core, it swells to an enormous size and cools to red. Inside, it fuses heavier and heavier elements, up to iron.",
+  where:"Top right: cool and red, but so gigantic that it is among the brightest stars of all.",
+  T:"about 3,500 K",L:"about 100,000",R:"hundreds to 1,000 times the Sun",D:"about 1 million years",ex:"Betelgeuse in Orion; Antares in Scorpius.",next:["sn2"]},
+ rg:{name:"Red giant",stage:"Old age",lanes:["sunlike","binary"],pos:[3.64,2.7],r:17,look:["#ffc08a","#ff6a3d"],
+  what:"When a low-mass star uses up its core hydrogen, its core shrinks and its outer layers puff up and cool. Later it fuses helium into carbon and oxygen. The Sun will do this in about 5 billion years.",
+  where:"Upper right, above the main sequence: cool (orange-red) but bright because it is so big.",
+  T:"about 4,000 K",L:"100 to 1,000",R:"10 to 100 times the Sun",D:"a few hundred million years",ex:"Aldebaran; Arcturus.",next:["pn","binwd"]},
+ binwd:{name:"White dwarf with a partner",stage:"Old age",lanes:["binary"],pos:[4.3,-1.3],r:10,look:["#ffffff","#9fd0ff","binary"],
+  what:"Many stars come in pairs. If one has already become a white dwarf and its partner swells into a giant, the white dwarf can pull gas off its companion.",
+  where:"Two places at once: the white dwarf (bottom left) and its giant partner (upper right). The dashed line links the pair.",
+  T:"white dwarf ~20,000 K; partner ~4,000 K",L:"white dwarf ~0.01",R:"Earth-sized + giant",D:"millions of years of gas stealing",ex:"RS Ophiuchi; T Coronae Borealis.",next:["nova","sn1a"]},
+ sn2:{name:"Type II supernova",stage:"Death",lanes:["massive"],off:[762,50],r:22,look:["#ffffff","#ff7a4a","burst"],
+  what:"When a massive star’s core is iron, fusion can’t give energy any more. The core collapses in under a second and the star explodes, blasting its outer layers into space.",
+  where:"Off the top of the chart: for a few weeks it can shine as bright as a billion Suns, brighter than its whole galaxy.",
+  T:"very hot (changes quickly)",L:"up to about 1,000,000,000",R:"expanding at 10,000 km/s",D:"bright for weeks to months",ex:"Supernova 1987A; the 1054 explosion that made the Crab Nebula.",next:["snr","ns","bh"]},
+ pn:{name:"Planetary nebula",stage:"Death",lanes:["sunlike"],pos:[5.0,3.6],r:14,look:["#ffffff","#58d6c8","ring"],
+  what:"A dying low-mass star gently pushes its outer layers into space as a glowing shell of gas, uncovering its very hot core. (It has nothing to do with planets: early telescopes made them look like planets.)",
+  where:"Top left: the uncovered core is extremely hot and still bright. It then fades straight down to become a white dwarf.",
+  T:"core about 100,000 K",L:"about 1,000 to 10,000",R:"shell about 1 light-year",D:"about 10,000–20,000 years",ex:"The Ring Nebula (M57); the Helix Nebula.",next:["wd"]},
+ nova:{name:"Nova",stage:"Death",lanes:["binary"],pos:[4.22,5.35],r:12,look:["#ffffff","#ffd36b","burst"],
+  what:"Gas stolen from the partner piles up on the white dwarf’s surface until it ignites in a nuclear flash. The white dwarf survives, and it can happen again and again.",
+  where:"The white dwarf suddenly jumps straight up the chart, tens of thousands of times brighter, then fades back down (the arrow).",
+  T:"very hot",L:"up to about 100,000",R:"white dwarf + expanding shell",D:"bright for days to weeks; repeats every 10–100,000 years",ex:"RS Ophiuchi erupts about every 15–20 years.",next:["binwd","wd"]},
+ sn1a:{name:"Type Ia supernova",stage:"Death",lanes:["binary"],off:[420,50],r:20,look:["#ffffff","#ffb36b","burst"],
+  what:"If the white dwarf gains enough mass to reach about 1.4 Suns, it can’t hold itself up and the whole thing explodes, leaving nothing behind.",
+  where:"Off the top of the chart: for a few weeks it shines like billions of Suns.",
+  T:"very hot",L:"about 5,000,000,000",R:"destroyed completely",D:"bright for weeks",ex:"Tycho’s supernova of 1572. These explosions are used to measure distances to far galaxies.",next:[]},
+ snr:{name:"Supernova remnant",stage:"Death",lanes:["massive"],off:[380,708],r:18,look:["#7fe8ff","#ff7a4a","cloud"],
+  what:"The expanding, glowing cloud of debris from the explosion, rich in new elements like oxygen, silicon and iron. It mixes into space and seeds future stars and planets.",
+  where:"Not on the chart: it is a cloud of gas, not a star.",
+  T:"millions of K (X-ray hot gas)",L:"not a star",R:"light-years, still growing",D:"tens of thousands of years",ex:"The Crab Nebula; Cassiopeia A.",next:["cloud"]},
+ ns:{name:"Neutron star",stage:"Remnant",lanes:["massive"],off:[72,320],r:9,look:["#ffffff","#a8d4ff"],
+  what:"If the collapsed core is between about 1.4 and 3 Suns, it gets crushed into a ball of neutrons only about 20 km across. A teaspoon of it would weigh as much as a mountain.",
+  where:"Off the left side: incredibly hot (around a million degrees) but so tiny that it gives off little visible light.",
+  T:"about 1,000,000 K",L:"very dim in visible light",R:"about 20 km across",D:"billions of years",ex:"The neutron star in the Crab Nebula.",next:["pulsar"]},
+ pulsar:{name:"Pulsar",stage:"Remnant",lanes:["massive"],off:[72,450],r:10,look:["#ffffff","#8cc8ff","pulsar"],
+  what:"A spinning neutron star that sweeps beams of radio waves (and sometimes light) across space like a lighthouse. We see a regular blip each time a beam passes Earth.",
+  where:"Off the left side, like the neutron star it is.",
+  T:"about 1,000,000 K",L:"seen as radio pulses",R:"about 20 km",D:"slows down over millions of years",ex:"The Crab Pulsar spins 30 times a second.",next:[]},
+ bh:{name:"Black hole",stage:"Remnant",lanes:["massive"],off:[560,708],r:13,look:["#000000","#b06cff","bh"],
+  what:"If the collapsed core has more than about 3 Suns of mass (from the very heaviest stars), nothing can stop the collapse. Gravity becomes so strong that not even light can escape.",
+  where:"Not on the chart: a black hole gives off no light of its own.",
+  T:"none (no surface)",L:"no light of its own",R:"a few tens of km",D:"essentially for ever",ex:"Cygnus X-1, a black hole orbiting a blue supergiant.",next:["xray"]},
+ xray:{name:"X-ray emission",stage:"Remnant",lanes:["massive"],off:[700,708],r:13,look:["#ffffff","#ff5ad0","disk"],
+  what:"A black hole with a partner star can pull gas off it. The gas swirls into a disk, heats to millions of degrees and shines brightly in X-rays just before it falls in. This is how we find black holes.",
+  where:"Not on the chart: the light comes from hot gas around the black hole, mostly as X-rays.",
+  T:"millions of K (the gas)",L:"bright in X-rays",R:"disk much bigger than the hole",D:"as long as gas keeps flowing",ex:"Cygnus X-1.",next:[]},
+ wd:{name:"White dwarf",stage:"Remnant",lanes:["sunlike","binary"],pos:[4.2,-2.4],r:9,look:["#ffffff","#cfe4ff"],
+  what:"The leftover core of a low-mass star: as heavy as the Sun but only the size of Earth. No more fusion happens; it just shines from stored heat and slowly cools.",
+  where:"Bottom left: hot (white) but very dim because it is tiny.",
+  T:"5,000–100,000 K",L:"about 1/100 to 1/10,000",R:"about the size of Earth",D:"cools over billions of years",ex:"Sirius B, the faint partner of Sirius.",next:["bdwarf"]},
+ bdwarf:{name:"Black dwarf",stage:"Remnant",lanes:["sunlike"],off:[880,708],r:11,look:["#4a3d5c","#1c1630"],
+  what:"A white dwarf that has cooled so much it no longer glows. This takes far longer than the age of the universe, so none exist yet. It is a prediction.",
+  where:"Not on the chart: cold and dark, giving off no visible light.",
+  T:"close to the temperature of space",L:"none",R:"about the size of Earth",D:"for ever (none exist yet)",ex:"None yet: the universe is too young.",next:[]}
+};
+const STAGES=["Birth","Main sequence","Old age","Death","Remnant"];
+const ORDER={Birth:["cloud","protostar","cluster"],"Main sequence":["massive","lowms","brown"],"Old age":["rsg","rg","binwd"],
+  Death:["sn2","pn","nova","sn1a","snr"],Remnant:["ns","pulsar","bh","xray","wd","bdwarf"]};
+// arrows: [from, to, lane, label]
+const EDGES=[["cloud","protostar","birth"],["protostar","cluster","birth"],
+ ["protostar","massive","massive"],["massive","rsg","massive"],["rsg","sn2","massive"],["sn2","snr","massive"],
+ ["sn2","ns","massive","core under ~3 Suns"],["sn2","bh","massive","core over ~3 Suns"],["ns","pulsar","massive"],["bh","xray","massive"],["snr","cloud","massive","recycled"],
+ ["protostar","lowms","sunlike"],["lowms","rg","sunlike"],["rg","pn","sunlike"],["pn","wd","sunlike"],["wd","bdwarf","sunlike"],
+ ["protostar","brown","brown"],
+ ["rg","binwd","binary"],["binwd","nova","binary"],["nova","binwd","binary","repeats"],["binwd","sn1a","binary","reaches 1.4 Suns"]];
+const PATHS={massive:["cloud","protostar","massive","rsg","sn2","snr","ns","pulsar","bh","xray"],
+ sunlike:["cloud","protostar","cluster","lowms","rg","pn","wd","bdwarf"],brown:["cloud","protostar","brown"],binary:["rg","binwd","nova","binwd","sn1a"]};
+PATHS.all=["cloud","protostar","cluster","massive","lowms","brown","rsg","rg","binwd","sn2","pn","nova","sn1a","snr","ns","pulsar","bh","xray","wd","bdwarf"];
+
+const xy=id=>{const s=S[id];return s.pos?[X(s.pos[0]),Y(s.pos[1])]:s.off;};
+function tColor(T){const t=Math.min(400,Math.max(20,T/100));let r,g,b;r=t<=66?255:329.7*Math.pow(t-60,-0.1332);
+  g=t<=66?99.47*Math.log(t)-161.12:288.12*Math.pow(t-60,-0.0755);b=t>=66?255:(t<=19?0:138.52*Math.log(t-10)-305.04);
+  const c=v=>Math.round(Math.max(60,Math.min(255,v))),m=(r+g+b)/3;return `rgb(${c(m+1.5*(r-m))},${c(m+1.5*(g-m))},${c(m+1.5*(b-m))})`;}
+
+/* ---------- build the chart ---------- */
+const svg=$("hr");
+function buildChart(){
+  const defs=el("defs",{},svg);
+  // arrowheads per lane
+  for(const [k,c] of Object.entries(LANECOL)){const m=el("marker",{id:"ah-"+k,viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"},defs);
+    el("path",{d:"M0,0 L10,5 L0,10 z",fill:c},m);}
+  // gradients for each stage
+  for(const [id,s] of Object.entries(S)){const g=el("radialGradient",{id:"g-"+id,cx:"40%",cy:"38%",r:"60%"},defs);
+    el("stop",{offset:"0%","stop-color":s.look[0]},g);el("stop",{offset:"55%","stop-color":s.look[1]},g);el("stop",{offset:"100%","stop-color":s.look[1],"stop-opacity":s.look[2]==="cloud"?0:.15},g);}
+  // colour strip
+  const cs=el("linearGradient",{id:"cstrip"},defs);
+  for(let i=0;i<=10;i++){const lt=P.tL-i/10*(P.tL-P.tR);el("stop",{offset:i*10+"%","stop-color":tColor(Math.pow(10,lt))},cs);}
+
+  // off-chart zones
+  const zones=[[300,10,580,72,"Too bright for this chart (only for weeks)"],[8,250,130,280,"Too hot & tiny"],
+    [950,262,122,150,"Too cold"],[300,668,660,84,"Not shining as a star"]];
+  for(const [x,y,w,h,t] of zones){el("rect",{class:"zone",x,y,width:w,height:h},svg);const top=y<20;const tx=el("text",{class:"zlabel",x:top?x+w/2:x+10,y:top?y+h-6:y+h-8,"text-anchor":top?"middle":"start"},svg);tx.textContent=t;}
+
+  // grid + axes
+  for(const T of [200000,100000,30000,10000,6000,3000,1500]){const lt=Math.log10(T),x=X(lt);
+    el("line",{class:"grid",x1:x,x2:x,y1:P.y0,y2:P.y1},svg);const t=el("text",{class:"axis",x,y:P.y1+30,"text-anchor":"middle"},svg);t.textContent=T.toLocaleString()+"°";}
+  for(let e=-6;e<=6;e+=2){const y=Y(e);el("line",{class:"grid",x1:P.x0,x2:P.x1,y1:y,y2:y},svg);
+    const t=el("text",{class:"axis",x:P.x0-8,y:y+4,"text-anchor":"end"},svg);t.textContent=e>=0?Number(10**e).toLocaleString():"1/"+Number(10**-e).toLocaleString();}
+  el("rect",{x:P.x0,y:P.y0,width:P.x1-P.x0,height:P.y1-P.y0,fill:"none",stroke:"#2a3672"},svg);
+  el("rect",{x:P.x0,y:P.y1+4,width:P.x1-P.x0,height:7,fill:"url(#cstrip)"},svg);
+  let t=el("text",{class:"axis",x:(P.x0+P.x1)/2,y:P.y1+50,"text-anchor":"middle",style:"font-size:13px;fill:#eef0fb"},svg);t.textContent="← hotter, bluer      Surface temperature      cooler, redder →";
+  t=el("text",{class:"axis",transform:`translate(${P.x0-72},${(P.y0+P.y1)/2}) rotate(-90)`,"text-anchor":"middle",style:"font-size:13px;fill:#eef0fb"},svg);t.textContent="Brightness (Sun = 1)";
+
+  // main-sequence band and region labels
+  const ms=[[4.65,5.8],[4.48,4.3],[4.3,3.0],[4.1,1.8],[3.98,1.2],[3.86,0.6],[3.762,0],[3.66,-0.7],[3.58,-1.4],[3.5,-2.3],[3.43,-3.3]];
+  el("path",{d:"M"+ms.map(([a,b])=>X(a)+","+Y(b)).join(" L"),fill:"none",stroke:"rgba(255,207,107,.12)","stroke-width":30,"stroke-linecap":"round"},svg);
+  const lab=(txt,x,y,c,rot)=>{const e=el("text",{x,y,fill:c,style:"font:italic 14px Georgia,serif",transform:rot?`rotate(${rot} ${x} ${y})`:""},svg);e.textContent=txt;};
+  lab("main sequence",X(3.95),Y(0.25),"rgba(255,207,107,.8)",31);
+  lab("giants",X(3.75),Y(3.1),"rgba(255,138,107,.75)");lab("supergiants",X(4.05),Y(6.2),"rgba(255,138,107,.75)");
+  lab("white dwarfs",X(4.75),Y(-3.6),"rgba(140,200,255,.75)");lab("brown dwarfs",X(3.5),Y(-5.6),"rgba(217,138,168,.8)");
+
+  // cluster dots (shown when the open cluster is selected)
+  const cg=el("g",{id:"clusterDots",opacity:0},svg);
+  let seed=3;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  for(let i=0;i<70;i++){const k=Math.floor(rnd()*(ms.length-1)),f=rnd(),lt=ms[k][0]+(ms[k+1][0]-ms[k][0])*f,ll=ms[k][1]+(ms[k+1][1]-ms[k][1])*f+(rnd()-.5)*.25;
+    el("circle",{cx:X(lt),cy:Y(ll),r:2.6,fill:tColor(10**lt)},cg);}
+  // Sun marker
+  el("circle",{cx:X(3.762),cy:Y(0),r:20,fill:"none",stroke:"rgba(255,207,107,.35)","stroke-dasharray":"3 3"},svg);
+
+  // edges
+  const eg=el("g",{id:"edges"},svg);
+  EDGES.forEach((e,i)=>{const [a,b,lane,label]=e;const [x1,y1]=xy(a),[x2,y2]=xy(b);const ra=S[a].r+4,rb=S[b].r+7;
+    const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy);const sx=x1+dx/L*ra,sy=y1+dy/L*ra,ex=x2-dx/L*rb,ey=y2-dy/L*rb;
+    const bend=(e[1]==="binwd"&&e[0]==="nova")?-60:(e[0]==="snr"?120:22);const mx=(sx+ex)/2-dy/L*bend,my=(sy+ey)/2+dx/L*bend;
+    const p=el("path",{class:"edge","data-lane":lane,"data-from":a,"data-to":b,d:`M${sx},${sy} Q${mx},${my} ${ex},${ey}`,stroke:LANECOL[lane],"marker-end":`url(#ah-${lane})`,
+      "stroke-dasharray":lane==="binary"?"7 5":(lane==="birth"?"2 5":"")},eg);
+    if(label){const tx=el("text",{class:"edgelab","data-lane":lane,"data-from":a,"data-to":b,x:.25*sx+.5*mx+.25*ex,y:.25*sy+.5*my+.25*ey-5,"text-anchor":"middle",fill:LANECOL[lane],style:"font:11px system-ui,sans-serif;paint-order:stroke;stroke:#060a1c;stroke-width:3px"},eg);tx.textContent=label;}});
+  // binary partner link
+  el("line",{x1:xy("binwd")[0],y1:xy("binwd")[1],x2:X(3.64),y2:Y(2.7),stroke:"#74e3b8","stroke-width":1.2,"stroke-dasharray":"2 4",opacity:.6,class:"edge","data-lane":"binary"},eg);
+
+  // nodes
+  const ng=el("g",{id:"nodes"},svg);
+  for(const [id,s] of Object.entries(S)){const [x,y]=xy(id);
+    const g=el("g",{class:"node","data-id":id,tabindex:0,role:"button","aria-label":s.name},ng);
+    el("circle",{class:"halo",cx:x,cy:y,r:s.r+7,fill:"none",stroke:"#ffcf6b","stroke-width":3,opacity:0},g);
+    if(s.look[2]==="ring"){el("circle",{cx:x,cy:y,r:s.r,fill:"none",stroke:"#58d6c8","stroke-width":5,opacity:.85},g);el("circle",{cx:x,cy:y,r:s.r*.75,fill:"none",stroke:"#b06cff","stroke-width":2,opacity:.7},g);el("circle",{cx:x,cy:y,r:3,fill:"#fff"},g);}
+    else if(s.look[2]==="bh"){el("circle",{cx:x,cy:y,r:s.r+5,fill:"none",stroke:"#b06cff","stroke-width":3,opacity:.6},g);el("circle",{cx:x,cy:y,r:s.r,fill:"#000",stroke:"#3a2a60"},g);}
+    else if(s.look[2]==="disk"){el("ellipse",{cx:x,cy:y,rx:s.r+6,ry:5,fill:"#ff5ad0",opacity:.8},g);el("circle",{cx:x,cy:y,r:4,fill:"#000"},g);el("line",{x1:x,y1:y-s.r-6,x2:x,y2:y+s.r+6,stroke:"#9fd0ff","stroke-width":1.5},g);}
+    else if(s.look[2]==="pulsar"){el("polygon",{points:`${x-22},${y-16} ${x},${y} ${x-16},${y-22}`,fill:"#8cc8ff",opacity:.6},g);el("polygon",{points:`${x+22},${y+16} ${x},${y} ${x+16},${y+22}`,fill:"#8cc8ff",opacity:.6},g);el("circle",{cx:x,cy:y,r:s.r*.6,fill:`url(#g-${id})`},g);}
+    else if(s.look[2]==="burst"){for(let k=0;k<8;k++){const a=k*Math.PI/4;el("line",{x1:x,y1:y,x2:x+Math.cos(a)*(s.r+9),y2:y+Math.sin(a)*(s.r+9),stroke:s.look[1],"stroke-width":2,opacity:.7},g);}el("circle",{cx:x,cy:y,r:s.r*.75,fill:`url(#g-${id})`},g);}
+    else if(s.look[2]==="binary"){el("circle",{cx:x,cy:y,r:6,fill:"#fff"},g);el("circle",{cx:x,cy:y,r:s.r,fill:"none",stroke:"#74e3b8","stroke-dasharray":"3 3"},g);}
+    else el("circle",{cx:x,cy:y,r:s.r,fill:`url(#g-${id})`},g);
+    const below=!["sn2","sn1a"].includes(id);
+    const tx=el("text",{x,y:below?y+s.r+16:y+s.r+16,"text-anchor":"middle"},g);tx.textContent=s.name.replace(" (main sequence)","");
+    g.addEventListener("click",()=>select(id));g.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();select(id);}});}
+  // nova arrow from the white dwarf
+  el("path",{d:`M${X(4.26)},${Y(-1.3)-14} L${X(4.23)},${Y(5.35)+22}`,stroke:"#ffd36b","stroke-width":2,"stroke-dasharray":"4 4","marker-end":"url(#ah-binary)",class:"edge","data-lane":"binary",fill:"none"},eg);
+}
+
+/* ---------- flow strip ---------- */
+function buildFlow(){const f=$("flow");STAGES.forEach((st,i)=>{const c=document.createElement("div");c.className="col";
+  c.innerHTML=`<h3>${st}${i<4?'<span class="arrow">→</span>':""}</h3>`;
+  for(const id of ORDER[st]){const s=S[id],b=document.createElement("button");b.className="phase";b.dataset.id=id;
+    const lane=s.lanes.find(l=>l!=="birth")||"birth";
+    b.innerHTML=`<span class="dot" style="background:radial-gradient(circle at 40% 38%,${s.look[0]},${s.look[1]})"></span>${s.name.replace(" (main sequence)","")}`;
+    b.style.borderLeft=`4px solid ${LANECOL[lane]}`;b.onclick=()=>select(id);c.appendChild(b);}
+  f.appendChild(c);});}
+
+/* ---------- selection and lanes ---------- */
+let cur="protostar",lane="all";
+function select(id){cur=id;const s=S[id];
+  document.querySelectorAll(".node").forEach(n=>n.querySelector(".halo").setAttribute("opacity",n.dataset.id===id?1:0));
+  document.querySelectorAll(".phase").forEach(b=>b.classList.toggle("sel",b.dataset.id===id));
+  $("clusterDots").setAttribute("opacity",id==="cluster"?1:0);
+  document.querySelectorAll("#edges [data-from]").forEach(e=>e.classList.toggle("hot",e.dataset.from===id||e.dataset.to===id));
+  $("name").textContent=s.name;$("what").textContent=s.what;$("where").textContent=s.where;
+  $("fT").textContent=s.T;$("fL").textContent=s.L;$("fR").textContent=s.R;$("fD").textContent=s.D;$("ex").textContent=s.ex;
+  $("stageTag").textContent="Stage: "+s.stage;
+  const ln=s.lanes.filter(l=>l!=="birth").map(l=>LANES[l]);$("laneTag").textContent=ln.length?"Path: "+ln.join(", "):"Path: every star";
+  const pic=$("pic"),sz=Math.min(140,Math.max(30,s.r*5.5));
+  pic.style.width=pic.style.height=sz+"px";
+  const look=s.look[2];
+  pic.style.background= look==="ring"?`radial-gradient(circle,#fff 0,#fff 5%,transparent 8%,transparent 38%,#58d6c8cc 46%,#b06cff88 58%,transparent 70%)`:
+    look==="bh"?`radial-gradient(circle,#000 0,#000 38%,#b06cff 46%,#ff9ad055 58%,transparent 70%)`:
+    look==="cloud"?`radial-gradient(circle at 35% 40%,${s.look[0]} 0,${s.look[1]}88 35%,transparent 70%),radial-gradient(circle at 70% 65%,#ffb36b88 0,transparent 45%)`:
+    look==="burst"?`radial-gradient(circle,#fff 0,${s.look[0]} 15%,${s.look[1]} 38%,#ff3d6e44 58%,transparent 72%)`:
+    look==="disk"?`radial-gradient(ellipse 50% 16% at 50% 50%,#000 0,#000 20%,#ff5ad0 30%,#b06cff88 60%,transparent 75%)`:
+    look==="binary"?`radial-gradient(circle at 70% 50%,#fff 0,#cfe4ff 7%,transparent 10%),radial-gradient(circle at 30% 50%,#ffc08a 0,#ff6a3d 22%,transparent 32%)`:
+    look==="pulsar"?`radial-gradient(circle,#fff 0,#a8d4ff 9%,transparent 14%),conic-gradient(from 45deg,transparent 0 30deg,#8cc8ff88 40deg,transparent 50deg 210deg,#8cc8ff88 220deg,transparent 230deg)`:
+    look==="cluster"?`radial-gradient(circle at 30% 35%,#fff 0,#9fd0ff 5%,transparent 8%),radial-gradient(circle at 60% 30%,#fff 0,#cfe4ff 4%,transparent 7%),radial-gradient(circle at 50% 60%,#fff3c4 0,transparent 6%),radial-gradient(circle at 72% 62%,#ffb36b 0,transparent 5%),radial-gradient(circle at 38% 72%,#ff8a6b 0,transparent 4%),radial-gradient(circle at 50% 50%,#7a5cff33 0,transparent 70%)`:
+    `radial-gradient(circle at 40% 38%,#fff 0,${s.look[0]} 25%,${s.look[1]} 60%,transparent 72%)`;
+  pic.style.boxShadow=["bh","cloud","disk","cluster","binary","pulsar","ring"].includes(look)?"none":`0 0 40px ${s.look[1]}88`;
+  const nx=$("next");nx.innerHTML="";
+  if(!s.next.length){nx.innerHTML=`<span class="note">${id==="sn1a"?"Nothing is left: the white dwarf is completely destroyed.":"This is the end of the line."}</span>`;}
+  for(const n of s.next){const b=document.createElement("button");b.textContent=S[n].name.replace(" (main sequence)","")+" →";b.onclick=()=>select(n);nx.appendChild(b);}
+}
+function setLane(l){lane=l;document.querySelectorAll("[data-lane]").forEach(b=>{if(b.tagName!=="BUTTON")return;const on=b.dataset.lane===l;b.classList.toggle("on",on);b.style.background=on?(l==="all"?"#eef0fb":LANECOL[l]):"";});
+  const inLane=id=>l==="all"||S[id].lanes.includes(l)||(l!=="birth"&&PATHS[l].includes(id));
+  document.querySelectorAll(".node").forEach(n=>n.classList.toggle("dim",!inLane(n.dataset.id)));
+  document.querySelectorAll(".phase").forEach(b=>b.classList.toggle("dim",!inLane(b.dataset.id)));
+  document.querySelectorAll("#edges [data-lane]").forEach(e=>{const k=e.dataset.lane;
+    const inl=k===l||(k==="birth"&&["massive","sunlike","brown"].includes(l));
+    e.classList.toggle("lane",l!=="all"&&inl);e.classList.toggle("dim",l!=="all"&&!inl);});
+}
+document.querySelectorAll("#lanes [data-lane]").forEach(b=>b.onclick=()=>{stop();setLane(b.dataset.lane);select(PATHS[b.dataset.lane][0]);});
+
+/* ---------- play a path ---------- */
+let timer=null;
+function stop(){clearInterval(timer);timer=null;$("play").textContent="▶ Play this path";}
+$("play").onclick=()=>{if(timer){stop();return;}const seq=PATHS[lane];let i=0;select(seq[0]);$("play").textContent="❚❚ Pause";
+  timer=setInterval(()=>{i++;if(i>=seq.length){stop();return;}select(seq[i]);},4200);};
+
+buildChart();buildFlow();setLane("all");select("protostar");
+</script>
+</body>
+</html>
