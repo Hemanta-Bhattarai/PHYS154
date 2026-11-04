@@ -240,10 +240,10 @@ footer{padding:40px 0;color:var(--muted);font-size:14px}
         <div id="pairList" class="mono" style="font-size:13px;margin-top:6px"></div>
       </div>
       <div class="row">
-        <button id="demo">Load demo marks</button>
+        <button id="demo" hidden>Load demo marks</button>
         <button id="clearAll" class="warn">Clear all</button>
       </div>
-      <p class="muted" style="font-size:12.5px;margin:0">Demo marks are rough clicks by the instructor, for previewing the workflow. Students should place their own.</p>
+      <p class="muted" id="demoNote" hidden style="font-size:12.5px;margin:0">Demo marks are rough clicks by the instructor, for previewing the workflow. Students should place their own.</p>
     </div>
   </div>
 </section>
@@ -385,54 +385,11 @@ Bottom: =AVERAGE(G2:G20)   =MEDIAN(G2:G20)   =STDEV(G2:G20)/SQRT(COUNT(G2:G20))<
 <!-- ============ INSTRUCTOR ============ -->
 <section id="instructor">
   <h2><span class="step">For the instructor</span>Notes, extensions, references</h2>
-  <details open>
-    <summary>Teaching notes</summary>
-    <ul>
-      <li><b>Registration.</b> The 1999 image in this page was aligned to 1956 by a least-squares affine fit to the centroids of the six reference stars (scale 1.0024, rotation −0.32°, shift ≈ 2.5 px; residuals 0.3–1.0 px). With the plates registered, the star-pair scale factor in Step 3 comes out ≈ 1.000. Asking “how do we know the photos line up?” is still a good systems-check question for non-majors, especially if they work from the unaligned printouts.</li>
-      <li><b>Expected student outcome.</b> Outer features typically give 1000–1300; inner features scatter wildly. A class-wide median of 1100–1200 is a good result.</li>
-      <li><b>Class pooling.</b> Have students paste rows into a shared sheet; the class distribution narrows visibly with N, a concrete intro to σ/√N.</li>
-      <li><b>Pulsar proper motion</b> (~15 mas/yr) is negligible over 43 years at this image scale; mention only if asked.</li>
-    </ul>
-  </details>
-  <details>
-    <summary>Extension: velocities in km/s (for stronger students)</summary>
-    <p>Convert the movement to an angular rate μ (arcsec/yr) using the plate scale (estimate it from the nebula’s known size, ≈ 7′ × 5′, or from the star pair separations with catalog coordinates), then <span class="mono">v<sub>t</sub> [km/s] = 4.74 · μ[″/yr] · d[pc]</span> with d ≈ 2000 pc. Compare with Doppler spectroscopy of the filaments (~1500 km/s); agreement between transverse and line-of-sight speeds is itself how the Crab’s distance is estimated (expansion parallax).</p>
-  </details>
-  <details>
-    <summary>Extension: automate feature tracking (computational)</summary>
-<pre># Sub-pixel feature shifts by phase cross-correlation (scikit-image)
-import numpy as np
-from skimage import io, color
-from skimage.registration import phase_cross_correlation
-
-a = color.rgb2gray(io.imread("CrabNeb_1956_8in.jpg"))
-b = color.rgb2gray(io.imread("CrabNeb_1999_8in.jpg"))
-pulsar = np.array([571, 586])                  # (row, col) in 1956 image
-
-def shift_at(rc, half=24):
-    r, c = rc
-    pa = a[r-half:r+half, c-half:c+half]
-    pb = b[r-half:r+half, c-half:c+half]
-    s, err, _ = phase_cross_correlation(pa, pb, upsample_factor=20)
-    return -s, err                              # displacement 1956 -> 1999
-
-for rc in [(732, 204), (742, 345), (294, 456)]:  # features 1, 2, 4
-    d, err = shift_at(rc)
-    r1 = np.hypot(*(np.array(rc) - pulsar))
-    r2 = np.hypot(*(np.array(rc) + d - pulsar))
-    print(rc, d.round(2), round(1956 - 43*r1/(r2-r1)))</pre>
-    <p class="muted">A grid of such patches gives a full velocity field; fitting <b>v</b> = (<b>r</b> − <b>r</b>₀)/τ by least squares recovers both the expansion center and the age, which makes a nice undergraduate computational project (compare the fitted center with the pulsar position). Note the different resolution and emulsion of the two plates, so smoothing the 1999 image to match 1956 before correlating helps.</p>
-  </details>
-  <details>
-    <summary>References</summary>
-    <ul>
-      <li>Trimble, V. (1968), “Motions and Structure of the Filamentary Envelope of the Crab Nebula,” <i>AJ</i> 73, 535.</li>
-      <li>Nugent, R. L. (1998), “New Measurements of the Expansion of the Crab Nebula,” <i>PASP</i> 110, 831.</li>
-      <li>Hester, J. J. (2008), “The Crab Nebula: An Astrophysical Chimera,” <i>ARA&amp;A</i> 46, 127 (review).</li>
-      <li>Duyvendak, J. J. L. (1942), “Further Data Bearing on the Identification of the Crab Nebula with the Supernova of 1054 A.D.,” <i>PASP</i> 54, 91; Mayall &amp; Oort (1942), <i>PASP</i> 54, 95.</li>
-      <li>Stephenson, F. R. &amp; Green, D. A. (2002), <i>Historical Supernovae and Their Remnants</i>, Oxford.</li>
-    </ul>
-  </details>
+  <div class="card go" id="lockCard">
+    <p style="margin-top:0">Instructor notes, the answer-level discussion, and the demo marks are encrypted. Enter the instructor password to unlock them for this visit.</p>
+    <div class="row"><input type="password" id="pw" placeholder="Password" autocomplete="off" style="width:220px"><button class="primary" id="unlockBtn">Unlock</button><span class="status" id="lockMsg"></span></div>
+  </div>
+  <div id="instrBody" hidden></div>
 </section>
 
 <footer>The 1999 image is registered to the 1956 image using reference stars A1–C2. Activity based on the “Crab Nebula Age” handout (Goshen College Astronomy). Images: 1956 and 1999 photographs supplied with the handout.</footer>
@@ -447,10 +404,26 @@ const W=1193,H=1172, DT=43, MM_PER_PX=203.2/1193;
 const REFS=["A1","A2","B1","B2","C1","C2"];
 const GIVEN=["1","2","3","4","5","6","7","8","9","10","11"];
 const COLORS={P:"#ffd166",ref:"#7fb4ff",given:"#ff5d7a",own:"#45dfc0"};
-const DEMO={
- 1956:{P:[586.2,570.3],1:[204,732],2:[345,742],3:[420,537],4:[456,294],5:[555,350],6:[688,606],7:[740,791],8:[747,571],9:[796,679],10:[810,458],11:[843,366],A1:[122,499],A2:[772,966],B1:[386,148],B2:[959,984],C1:[598,130],C2:[1016,787]},
- 1999:{P:[588.0,569.8],1:[182.4,738.6],2:[333.7,750.7],3:[412.5,526.1],4:[453.0,277.9],5:[555.4,334.1],6:[689.3,610.2],7:[750.9,802.1],8:[754.4,567.0],9:[807.8,684.2],10:[818.3,455.1],11:[861.2,356.3],A1:[122.7,498.9],A2:[772.3,965.3],B1:[385.6,148.8],B2:[958.8,983.2],C1:[599.1,129.7],C2:[1015.5,788.7]}
-};
+let DEMO=null;
+const LOCK={salt:"RHXgqpTFDDdVDfpjE91I5A==",iv:"7uWAMyOXhspKiv4x",it:250000,ct:"vuyns4HnMwgws3wfS2WoY3Jthu1k6+nUh7cgoZXCR8UigNhve4LPk3cjACu8jVtuztqv2aQIi2KEEWcUPYj8vP46Qpq8S/kKSWq6BEsV1QDSmFWEfchpebHA0QtAN0Zp1fGkW8VtlIaTevhTBlsVlbb9Gg/5zVqlBxbMo9QqrrOAbWstaQa5PmmbHnuAMKfc/u9F5S52qI87SSo/hsyZvq+Dz6XgacBfJDHyFt6BuwXLEGSS3EZpNZJXKRiAoHLNHq2HiZ0oEgs6FR9ppj1/4cJRpyG1D/O2Lu5w9oBOXmRzimkYXEV9xK6s4WSS2ZrikX+wMIRGKDCgX8qfgmre1+inl8GROBLEhRlR7yg+2LTVgg5JH906+/pIjPoPk4fB92ARA/NZYkmSB886I2D35+Zo8kkpAwiJ3fZs80YXdh5eX76PU3/SoPyj4dSzwtE9AWH7gRuY/dAOZ3UB4MCMM1lIX5OmQAHc0YBDll3ci149+1gvwKt1hD6dIl0mPySbIn7rSza63ghSk0qISKYtEQFndg8Bdeucbnw2CB1ghWFDwieVXMQzq0jbOlpd+Su0U3onOj2VgO7k5HZR8l+OAEO+gZLf3b9vx0eOAh2FruwkJJCjX8XqbzNa4Z9j61tKd25O5qFqIqN5TiJIxMRfHTu3Y53An+dPcG5hynaTILRVCv+kFdc02NN8rAY1meI7AktarPAPQDwn2rsH1P0jsj0Ywr1XjWQ07SMwXUC6ikLRiT4PnR1yxzebTZfvyWv6HDsK9ONYTWh4ElDkZ6+A/Zu4zYNfPXXY4obduYJfhOQ18wO51AvV/ZO3AQXWRnfZJA+AZgmRrU2ZIAlhBIct4pmZaR7GnK1NEBecJKLWCNh23FtvIoI/g3X20Cl50uGSlouUJwq4HYsaJT9sNM0PK2Qb4qKdmYaJAOqUQtUB5xpmzMoR99xlAFeZ/w1FRYzeGnUpwB8774TaJGwBOCdhlxrdjGMMoyU/FB6nD7LLMUG9plF+2lNph7phwLQaoqQ1vEuYi3e6lhd7vjlvh6GShfcRL8GPw9MW1vVjE+lDJ7nHl/nj3hfGcxwHHvjLSgAd7mfDxjrknrLJiws7AIaRwCHIpg/rM5VzmUF3RnNj0blLT9fFjI4C2oTQH3J//gT8XX6MALXB+ACkDvESsjSgt/GNIoA2YEhvAN+G2IKSV6FNuRWA0kv0PMHSqDG2MnN9VvIdcMa/t+3Af6S2NP01kMmqdr3SvGCV26D33vnG7BIzCzUEpSlbh+yxGMtgfWu5ny0WE8HLqYwgeiXz8IipkK9ZnfsTZQmoT7gYTkdg/VesESP9C6PuM/BEKNd+m+fpX+Ai1dIqjbheolDgjeC/qkLLmddafeiMFLZxhifFx2QPVxOUbB5D0ZEGG0nwu5nzMwLkLZh18ZO6PQf+CCeooDsFbiCTSGrxXkgtXTZsbZIrWTrovAOURJuS/xH4GMgAfBsEANOiUwFTTIJoE2nC0hfXoT/g9GXIOj9FxBj8pzIP2422nvExnVLTygyCsHAMSXGfV4SHToCaDaYQ2zqH46HhYAg9pEp9HGPjlerqamZzBzeYMVxqlTFpccvwOHdU3F1LdJCHLGQj+w59PgBDB874rhhbaO06j6E7cJUD1tNGalXWQ4I5aQuHR2n+8A8iFBrAghKD9w5/VP8ERywqnPASjnS9Z75pDmu7/M9ikZBBuo0R++R3cL42DvsDo2T3+S00qR7LeinpPyEkFRzCxBP8H5PO+ectT8YLngKw9Q6eRSvsuoE7gMGf1+eudIcUT7Qg6o1Vghb3vZj6V7HkD5dAXt5owFhdsKb9CK7V5bsrNbjYr+gdV5/GFe2m2DHQbRDbHS9lBkCESOmm9gNbfPDjxzgczY5c+6+6a86f/YJXhzp71R0vgr5Oj1za+xCuFBdk5S0gV8j0kt7Bmka5llbFDqaKHEODTgySpp4e8LRVzh+V1N+n6Is0KXeIAEhQfPzK1d01oERfXE1SAXwv+lP/kr7RGh5MMnoxbIk0CAO0L1WqGEVbDYKkiAaI18LM+w6lRtzVctmUycVpRbmt1hDPdzB5gMBwhdLYAso5g9oByGYDHBvBcBC8qNYOoP4fysBL4TUE8riR1fDs8sjVn2m3O3gmhcR6yu7l5W5Ag6fS9IH7trnzo3x5UJgrT9D/i2KEmBmuXXrHgOINHFbc0Q2femffHuUvlsROfWk32SAL71l6/xzRjl41vdnCyyrHG220HJa78K2rUbrReBPcisMLl/vtAdJXnDZyN92QpIlUUc5eb6svG4ssoorxweiPOZmMX73xdkwEZdZaIe6mT/+0Wr7cFjrQnO95KCNg2aukATMcJqefEErqrLn8cLcNNPtIcjDZHfCcPVAvW4z2Vb6a+wuvA8vjg/PFEXbbLWIwmAMw3DRMIl2Txk0X9IJsOTU+3cqc4NsE+cH8QsVrjW0p99kp0pFU1n9S3Jk+r6UwuPIb53Yc9ZXHHUt+LAF0s/znasUUOgqCDavqoE7eyNzuf/VuVGCh4fmVGh+NNWsTKW5Q6ALsBEgu8XWeDtVbM5u8gdGCW7itlj2/yErxN3CUEoDCuNqX4oLOfMdKEnddaHwM3trsASiCfaT2+ueAr8cHSD4Lm27WJijtxZ9oSr7A54wkf1+QNnfYN/NahzviOXSY0eq5KHg8BMNWso7IL/nbqWiiMm3Cr60rNiqUT6Xk2eKrTfuiaDmgecI0/JjQcQ191HJGApFNUPniKLrYWokGrC+EKYE+gykmDh9Fx+fV3VK2HkTE+noz5JpB8iSgVeJtcrKniivmpgpBCUmL8oJ8lHTHHIXWQrcgB5fFs2TrOP5VGoyjWHSkJUk2lj2L21e/d8gSoCpMKfN1qF4tePVcuh0/Ha1vLtXY9WpsoFYjNgS25g+9e0ho41AGBseuK4HMH7GfVvY1FRnROIq1GCx89L8Y4n0+79GJ+rp1OygrgTxeXZF8i3+IrMFmj/nx9Az55naD2cEiXoy711jtYOWDqjRBaZgcdt36PodMsF+pumTxTozfgZe3ATYPqx7noerTsYbkXE42oVYIhArtIAKz9oqDuYSQMRNZ8OZ4drojUr9JxUCXzC0WJv8MhkCCBYTXaTvBhEHDeGqtPmaa+4Ws/fW9jEH+argr41ezILTjpv1SEPDV+H3/fxSJbhiOBTgjvjO3W6IGfKPscEJewj6fQ4D0RPkOhHv7uw7ilR8cDHiaYTapzTRVb2PpjX+w6EwDVYdwLCHs9xAFJggAXpgTSQ4pT15szi+i+DBXVKjCaFtCDonoi5fdgkqgYB8GcC46VjrQOYb9Gz8u8/AM7Qlhf2hCLTFNtasS9NJvfR4p5huVBtzyy8M2lY/NWoCUOimm+aGa9SDwruRQoRd1Cdrew9NRxMkf/cNRKTxf1FvPa/ShONNZ4GolkG5A25bnKD2SHR+9wkNuUMgCxtTgB0oR/mEbRvd3Md5Xg4UGV4dFFFAvKRJOusKLSQNTzt4tYdzjphcQEpJiohIs1I5u2uoUhONvfDpPGzbha4/hSXRaAz3A3g7LJP+IMwyW8qsv++Q0uQWA2BSJPC5f0d7WV9BxwUj4OAJ+X+mjREiSrqrvMq+2PMpxboqtNB3cYHYo/6byfcTZo4zURiSKj9WngCsqPH1WC75qAOS7XT2kfSx7I2/UtMIKZMzmYSQH1vbC3SyBC2G0Fy92WHQPWmXWhL19RSWB3R9tFjpZIXOEx7NCvRWl9ahEX0LfkJnxTd3OaaqHydesiKZr7OAF83pTZU+KaJCUnvHdRcEPtESJj9iPBqt6QQGGKD6X5akwuEoyZZ8lGeoZmr6Z6Yos1vuaQ+GsdYQCRUsYgAQowWRA9x/7mRv8zUp8HkxZI4gjSFHJD7xgTnzBe1baOfMFaBJc+oOn6UozdYVt2JyqRbR+zudgUdmUa+JnvFFxkXly/OS56PWJdz+FeLH1Q6zWGWhyrmthXORYPEFsW61nqpzmWHeyXaKnJsWfKykX3f/5+kuCgSnrywx4qQBY22HdYiLv5jiwSQwK+p3l7Kvem25aN5J08IH9qYP8CrlpYGKVL5ERUzqcmohlkFftuPAi1+nxXQWfyPgTBXwJjmFxW+oe6yd66xVBN3X0N6eOz+IqLf46pEpthrz6merQ4P5nsvwdMnp6Tv95Tpzxizz1id42WkE7fw70tYUwFr+PSOH/uBKroJfWRsk6ZQVlJIjIGLrIA+/JRS1hRSgBFCYmmN0PQF/lSCeTCSybADXJwp3F6QPLYhR6nDbdegQQQEMU8JVR+bpMT5qhll01+kUwLHtX9IAIQJlpaENEBW3K9OM3y7bRzd/qJa4lkLQAKbVYIM8ChwKNKEsKq37advKTmGP5CSUGyve7PB8SoM+n1AHK38VI+oaSLe5gfp+m99EHMTqi4S8/3bGDUm0a/05EOArm467hhGyWHtWHK3H7oYxBXam2ZRLfB6ZCDnWsZNOWoHiYzCMJ21PYiLpE0ftP8HKWR3PLBzFgZQUpH8/fYOiswr+XNgWOwZdS/MMVE/0tpijIxBaOiv1RTAsTb8exmzMrdvbnByXJQ9YS4bN67/NoffYI6jIl/Jm8QJwafl5Y0w+tzGp4122cK6he/7cAVVbyr+KRODnZga2koHp7IkMsld5d2nDfBXf2ZvIZMUbj2EpoPbEaajEy30+rWfZPsxqqBXBhTJqEMGa7iYHO0I5kyTvwBaDpdvL0SPflaepbsfAa2YzseR0ENXElPsF3PTelPlmltb28TDbRO8uHOGQa7DL+aicxCy5BtPXahtJtjVIJQgpiFiSmUBbq0Ekmp+EQgJa7RGpf411EnOBgs7hAhrJkP5wUso9yWwn4q+tapChsNGNMTb7mkgNuBFSl/JY2L7HAc4Q9vdHiNxU/AShnlNAU421MYhVk4TdEbnroMPu7/5PUCISOOoqE3nVkZZTi9+oDOz5X6d/aw5F17Q3JYiDMQt3LIDfuEoGzrfYjiMAeZzdHQFl5rJJar4SIDlwqJ0h5SZ5sZCjS6xJMRqaL8rzWvqzrFns7eb906wand9SIy8kzJ1VQzHBaP/eZ9dZDcqVZrayUeDdUF1H5rhLnMcrF9IsdYqk+BkvYYiVWcp3EyIPjyXSmkwl4SEFjelzLvHANBt7yxLLzCbAH4amGUmDCPcPrmUa7blEEIdq7qs12pnxCpd00uTBoEyfLnibIXLN3pzpg6exdyIB5ApCqT6q3exNgF0b3UWLAIpo7EBuJLmmVJ6tOrCkAaCAMhv47H/1fOmjWtpE/Oa+UNzVvcH75iiErQHESrVM0+/5rV4xHnQPN/Rm9ya0cXygHaMwpC6aw30SYUynYwRaBnjkil/js3sZgTs8p0HfvNn7TCOfHUKRgwcoJZXAx9ZKsfShXjnu5ZjBrt3B1K4X1DahCif0cguvmmyDtyDinnmo9nNzn3h3HFbceJBjc3Z+FGZhKTl3JLDF/PqiKxp3lczv8YQa19mFq+C4WNYCXRVxMIt3V0rjGMgQsgBEmfhyNDL7+BpdT4xiTjcrh0WAAwu8t/AiUo4XDU1qT7PlS2Gq9n8OVxhhYOzB2PMmhNvbGsbSQqLJtwWSELJWmiOvGWpkHdkz7ieP88DPRqZPrh1dOFDp30nzzEQ1qHhG2tyUr4fjxoASjzqbkZ2CryVNymgUNkjXvM9zfT0BzYWRJ7/zwQ3XE9+s6FZaZ6A/iTMpZdYdDHrwyb/A8bM12euzAepR+M4M065R2vCLuaWe1tQS8eHRj7MmjGCuaiv04r5nfNWfMwQKN47zLxIofTuTm1GMziVQu8ezt43/6+/23sOKskmFuxk9FVS6PDUZJz04W+foullgrSNgUh5WJ7CZapPaOvX47WyPjlnHv+h7ErCaqhNt7K+U1O9CvIrd0O67Pb1Z1aeU66as5WRjpYfwCVrn4FZAC0JyXfoXsOt46mDFERYyZcH4MBCCAv6k0QQz0BViKqdGhORpMvc2msBn3qMl5Ed+db1o3UGyBld0x1DvbLq02F7jn1dZ9B5EfSCyk75Mw++PusIDBmAMdvVdtmLKeCpW5uP1oPss9JQp2J0+6C1GepZePZcicMvI/1/H6kFZ1EB8XUYesNOSE+YZFaTxwFQAkiU6tu36fQpGoihZ3Ho4oL5GtDbop3v9quVtIACbsMH90lIY3wJdeS6NDRv17DU2i3pj5H+wNFdriEguxCAd7LZkuilN6f2fpE844Xb+3CmMzDyfX2/WVAKtU5X1tyo+NaMeTf9V1sMts9LyFTtn9V/EMhK42P7STTocq4+Qjtt7u5fBGO+GEBmGZVJgnleZ8tV8KIFcD2nrGhytSDgs="};
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function unlock(pw){
+  const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+  const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(LOCK.salt),iterations:LOCK.it,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"]);
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(LOCK.iv)},key,b64(LOCK.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function tryUnlock(){
+  const msg=document.getElementById("lockMsg");
+  if(!(window.crypto&&crypto.subtle)){msg.textContent="This browser can’t decrypt here (needs https or a local file).";return;}
+  msg.textContent="Checking…";
+  try{const d=await unlock(document.getElementById("pw").value);DEMO=d.demo;
+    const box=document.getElementById("instrBody");box.innerHTML=d.html;box.hidden=false;
+    document.getElementById("lockCard").hidden=true;document.getElementById("demo").hidden=false;document.getElementById("demoNote").hidden=false;
+  }catch(e){msg.textContent="Incorrect password.";}
+}
+document.getElementById("unlockBtn").onclick=tryUnlock;
+document.getElementById("pw").addEventListener("keydown",e=>{if(e.key==="Enter")tryUnlock();});
 let S={pts:{1956:{},1999:{}},pairs:[["3","8"]],own:[],manual:[],year:1956,cur:"P",inv:true,ghost:true,unit:"mm",scaleCorr:true,sig:1.5,excl:{},sel:null};
 const $=id=>document.getElementById(id);
 function save(){try{localStorage.setItem("crabAge",JSON.stringify(S));}catch(e){}}
@@ -539,7 +512,7 @@ $("addOwn").onclick=()=>{let n=21;while(S.own.includes(String(n)))n++;S.own.push
 $("delPt").onclick=()=>{delete S.pts[S.year][S.cur];
   if(kind(S.cur)==="own"&&!S.pts[1956][S.cur]&&!S.pts[1999][S.cur]){S.own=S.own.filter(o=>o!==S.cur);S.pairs=S.pairs.filter(p=>!p.includes(S.cur));S.cur="P";}refresh();};
 $("addPair").onclick=()=>{const a=$("pa").value,b=$("pb").value;if(a&&b&&a!==b&&!S.pairs.some(p=>(p[0]===a&&p[1]===b)||(p[0]===b&&p[1]===a)))S.pairs.push([a,b]);refresh();};
-$("demo").onclick=()=>{S.pts=JSON.parse(JSON.stringify(DEMO));Object.keys(S.pts).forEach(y=>{Object.keys(S.pts[y]).forEach(k=>{});});S.own=[];S.pairs=[["3","8"],["1","11"],["4","7"]];S.cur="P";refresh();};
+$("demo").onclick=()=>{if(!DEMO)return;S.pts=JSON.parse(JSON.stringify(DEMO));Object.keys(S.pts).forEach(y=>{Object.keys(S.pts[y]).forEach(k=>{});});S.own=[];S.pairs=[["3","8"],["1","11"],["4","7"]];S.cur="P";refresh();};
 $("clearAll").onclick=()=>{if(!confirm("Remove all marks, pairs and ruler rows?"))return;S.pts={1956:{},1999:{}};S.own=[];S.pairs=[];S.manual=[];S.excl={};S.cur="P";S.sel=null;refresh();};
 
 /* ---------- computation ---------- */
