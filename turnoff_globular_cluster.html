@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Watch a Globular Cluster Grow Old</title>
+<style>
+:root{
+  --night:#0a0f26; --deep:#050816; --card:#121a3d; --card2:#18224d; --line:#2a3672;
+  --ink:#eef0fb; --muted:#aab3da; --gold:#ffcf6b; --rose:#ff7fa0; --mint:#74e3b8; --blue:#8cc8ff; --violet:#c2a8ff;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:radial-gradient(1100px 600px at 85% -10%,#202b66 0,transparent 60%),var(--night);color:var(--ink);
+  font:16px/1.6 "Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif}
+h1,h2,h3{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;line-height:1.2;margin:0}
+.wrap{max-width:1380px;margin:0 auto;padding:24px 20px 50px}
+h1{font-size:clamp(1.9rem,4vw,2.7rem);color:#e3ecff}
+.lead{color:#d3d9f4;max-width:78ch;margin:.5rem 0 0}
+.top{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-top:18px}
+@media (max-width:980px){.top{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+canvas{display:block;width:100%;border-radius:12px;background:var(--deep);touch-action:none}
+#hr{height:min(70vh,640px);min-height:420px;cursor:crosshair}
+#sky{height:300px;cursor:crosshair}
+.plotwrap{position:relative}
+.tip{position:absolute;pointer-events:none;background:#0a0f26f0;border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:.82rem;display:none;z-index:2;white-space:nowrap}
+.clock{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:10px 0 4px}
+.age{font-family:"Iowan Old Style",Palatino,Georgia,serif;font-size:2rem;color:var(--gold)}
+.era{color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--gold)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+button{font:inherit;font-size:.92rem;color:var(--ink);background:#22306a;border:1px solid #3a4a98;border-radius:10px;padding:7px 13px;cursor:pointer}
+button:hover{background:#2b3b80}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button.play{background:linear-gradient(90deg,#ffcf6b,#ff9b6b);color:#1d1400;border:0;font-weight:650;padding:9px 20px}
+.note{color:var(--muted);font-size:.87rem}
+.counts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.counts div{background:#0a0f26;border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.counts b{display:block;font-size:1.15rem}
+.counts span{font-size:.74rem;color:var(--muted)}
+.counts i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+.to{margin-top:10px;padding:10px 12px;border-radius:12px;background:#0a0f26;border-left:5px solid var(--rose)}
+.to b{color:var(--rose)}
+.follow{margin-top:10px;padding:10px 12px;border-radius:12px;background:#0a0f26;border-left:5px solid var(--mint);display:none}
+.follow h3{font-size:1.1rem;color:var(--mint)}
+.check{display:flex;gap:7px;align-items:center;font-size:.88rem;color:var(--ink)}
+.check input{accent-color:var(--gold);width:16px;height:16px}
+.learn{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+@media (max-width:980px){.learn{grid-template-columns:1fr}}
+.learn h3{font-size:1.15rem;margin-bottom:6px;color:var(--gold)}
+.learn p,.learn li{font-size:.94rem;color:#d6dbf3}
+.learn ol{padding-left:1.2em;margin:4px 0}
+.learn li{margin:4px 0}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Watch a globular cluster grow old</h1>
+  <p class="lead">A globular cluster is a ball of hundreds of thousands of stars, all born at the same moment from one giant cloud.
+    Press <b>Play</b> and watch 13 billion years go by. Newborn stars first slide <em>onto</em> the main sequence; later the heaviest stars
+    run out of fuel and peel <em>off</em> it. The place where stars are leaving, the <b>turn-off point</b>, creeps down the main sequence
+    like the hand of a clock.</p>
+
+  <div class="top">
+    <div class="card">
+      <div class="plotwrap"><canvas id="hr" aria-label="H-R diagram of the simulated cluster"></canvas><div id="tipH" class="tip"></div></div>
+      <div class="clock"><span class="note">Cluster age</span><span id="age" class="age"></span><span id="era" class="era"></span></div>
+      <input id="t" type="range" min="5" max="10.12" step="0.001" value="5" aria-label="Cluster age (drag to change)">
+      <div class="btns">
+        <button id="play" class="play">▶ Play</button>
+        <label class="note" style="display:flex;gap:6px;align-items:center">speed <input id="speed" type="range" min="0.3" max="3" step="0.1" value="1" style="width:100px"></label>
+        <button data-t="5.7">0.5 million yr</button><button data-t="7">10 million yr</button><button data-t="8">100 million yr</button>
+        <button data-t="9">1 billion yr</button><button data-t="9.7">5 billion yr</button><button data-t="10.1">12.5 billion yr</button>
+      </div>
+      <div class="btns">
+        <label class="check"><input id="zams" type="checkbox" checked> show where the main sequence is</label>
+        <label class="check"><input id="trail" type="checkbox" checked> show the followed star’s path</label>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3 style="font-size:1.1rem">What the cluster looks like through a telescope</h3>
+        <canvas id="sky" aria-label="Picture of the simulated cluster"></canvas>
+        <p class="note" style="margin:.4rem 0 0">Young, the cluster is dominated by a few brilliant blue stars. Old, its light comes from yellow and red giants.
+          Click any star here or on the H-R diagram to follow it.</p>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="counts">
+          <div><b id="cP"></b><span><i style="background:#ff8a6b"></i>protostars still settling</span></div>
+          <div><b id="cM"></b><span><i style="background:#ffe9b0"></i>main-sequence stars</span></div>
+          <div><b id="cG"></b><span><i style="background:#ff9b5b"></i>giants and supergiants</span></div>
+          <div><b id="cH"></b><span><i style="background:#9fd0ff"></i>helium-burning (horizontal branch)</span></div>
+          <div><b id="cW"></b><span><i style="background:#cfe4ff"></i>white dwarfs</span></div>
+          <div><b id="cS"></b><span><i style="background:#ff5ad0"></i>exploded as supernovae</span></div>
+        </div>
+        <div class="to" id="toBox"></div>
+        <div class="follow" id="follow"><h3 id="fName"></h3><p id="fText" style="margin:.2rem 0 0"></p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="learn">
+    <div class="card">
+      <h3>What you are watching</h3>
+      <ol>
+        <li><b>Birth (first few million years).</b> All the stars appear at once as cool, puffy protostars on the right. They shrink and slide left and down onto the main sequence. Heavy stars get there in thousands of years; small ones take hundreds of millions.</li>
+        <li><b>Main sequence.</b> Each star settles at a spot set by its mass: heavy ones hot and bright (top left), light ones cool and dim (bottom right).</li>
+        <li><b>Peeling off.</b> The heaviest stars run out of hydrogen first and swing up to the right as giants. As time passes, lighter and lighter stars follow.</li>
+        <li><b>Death.</b> Heavy stars explode as supernovae and vanish. Sun-like stars become giants, then shed their outer layers and fade into white dwarfs at the bottom left.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Why the turn-off point is a clock</h3>
+      <p>All the stars are the same age, so the ones leaving the main sequence <em>right now</em> are exactly the ones whose lifetime equals the cluster’s age.
+        Heavy stars live short lives; light stars live long ones. So the lower the turn-off, the older the cluster.</p>
+      <table>
+        <tr><th>Cluster age</th><th>Turn-off stars</th><th>Mass</th></tr>
+        <tr><td>10 million yr</td><td>blue O/B</td><td>~18 Suns</td></tr>
+        <tr><td>100 million yr</td><td>blue-white B</td><td>~6 Suns</td></tr>
+        <tr><td>1 billion yr</td><td>white A</td><td>~2 Suns</td></tr>
+        <tr><td>12–13 billion yr</td><td>yellow G</td><td>~0.9 Sun</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Globular clusters</h3>
+      <p>About 150 globular clusters orbit our Milky Way. Each holds 100,000 to a million stars packed into a ball about 100 light-years across.
+        Their turn-off points sit near Sun-like stars, which tells us they are <b>12 to 13 billion years old</b>, among the oldest things in the galaxy.
+        The famous one in the northern sky is M13 in Hercules.</p>
+      <p>Their old stars contain very little metal, so the helium-burning giants spread out in a horizontal row on the H-R diagram: the
+        <b>horizontal branch</b>.</p>
+      <p class="note">This simulation uses 5,000 stars and simplified rules (lifetime ≈ 10 billion years × mass<sup>−3</sup>). The paths are sketches of real stellar models.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function fit(c){const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);
+  const x=c.getContext("2d");x.setTransform(d,0,0,d,0,0);return [x,r.width,r.height];}
+function tColor(T,a=1){const t=Math.min(400,Math.max(20,T/100));let r,g,b;
+  r=t<=66?255:329.7*Math.pow(t-60,-0.1332); g=t<=66?99.47*Math.log(t)-161.12:288.12*Math.pow(t-60,-0.0755);
+  b=t>=66?255:(t<=19?0:138.52*Math.log(t-10)-305.04);const cl=v=>Math.max(0,Math.min(255,v));r=cl(r);g=cl(g);b=cl(b);
+  const m=(r+g+b)/3,c=v=>Math.round(Math.max(60,Math.min(255,m+1.6*(v-m))));return `rgba(${c(r)},${c(g)},${c(b)},${a})`;}
+function fmtAge(y){if(y<1e6)return `${Math.round(y/1000).toLocaleString()} thousand years`;
+  if(y<1e9)return `${y/1e6<10?(y/1e6).toFixed(1):Math.round(y/1e6).toLocaleString()} million years`;return `${(y/1e9).toFixed(y<1e10?2:1)} billion years`;}
+
+/* ===================== simple stellar "physics" =====================
+   Main-sequence position:  log L ≈ 3.6 log M ;  log T from a smooth fit (Sun = 5,800 K)
+   Main-sequence lifetime:  t ≈ 10 Gyr × M^-3 (M ≤ 3), gentler slope for heavier stars
+   Time to settle onto the main sequence: t ≈ 30 Myr × M^-2.5 (gentler for small stars)                                 */
+const msLT=M=>M>=1?3.762+0.58*Math.log10(M)-0.04*Math.max(0,Math.log10(M)-1):3.762+0.55*Math.log10(M);
+const msLL=M=>3.6*Math.log10(M);
+const tMS=M=>M<=3?1e10*Math.pow(M,-3):1e10/27*Math.pow(M/3,-2);
+const tPMS=M=>Math.max(2e4,M>=1?3e7*Math.pow(M,-2.5):3e7*Math.pow(M,-1.6));
+const turnoffMass=age=>{const m=Math.pow(age/1e10,-1/3);return m<=3?m:3*Math.pow(age/(1e10/27),-1/2);};
+const T0=1e5; // the clock starts when the cloud has finished collapsing
+const lerp=(a,b,f)=>a+(b-a)*Math.max(0,Math.min(1,f));
+
+function state(s,t){
+  const M=s.M, lt0=msLT(M)+s.dt, ll0=msLL(M)+s.dl, tp=tPMS(M), tm=tMS(M);
+  if(t<tp){ // protostar: down the cool side, then left onto the main sequence
+    const f=Math.log(t/T0)/Math.log(tp/T0);
+    const ltS=3.56+0.07*Math.log10(M)+s.dt, llS=Math.max(ll0+1.4,0.9+1.3*Math.log10(M)), llH=ll0+(M>0.6?0.35:0.1);
+    if(f<0.6) return {k:"pms",lt:ltS,ll:lerp(llS,llH,f/0.6)};
+    return {k:"pms",lt:lerp(ltS,lt0,(f-0.6)/0.4),ll:lerp(llH,ll0,(f-0.6)/0.4)};
+  }
+  if(t<tm){const x=(t-tp)/(tm-tp);return {k:"ms",lt:lt0-0.035*x,ll:ll0+0.3*x};}
+  const g=(t-tm)/tm;
+  if(M>=8){ // massive: red supergiant then supernova
+    if(g<0.10) return {k:"giant",lt:lerp(lt0-0.035,3.56+s.dt,g/0.04),ll:ll0+0.3+0.15*Math.min(1,g/0.05)};
+    if(g<0.10+0.002) return {k:"sn",lt:3.56,ll:ll0+0.45,boom:(g-0.10)/0.002};
+    return {k:"gone"};
+  }
+  const lsg=ll0+0.3, top=3.25+s.u*0.1;
+  if(g<0.05) return {k:"giant",stage:"subgiant",lt:lerp(lt0-0.035,3.71+s.dt,g/0.05),ll:lsg+0.15*g/0.05};
+  if(g<0.13){const f=(g-0.05)/0.08;return {k:"giant",stage:"rgb",lt:lerp(3.71,3.60,Math.pow(f,1.5))+s.dt,ll:lerp(lsg+0.15,top,Math.pow(f,2.2))};}
+  if(g<0.18){const hbT=3.80+0.35*s.u;return {k:"hb",lt:lerp(3.62,hbT,Math.min(1,(g-0.13)/0.004)),ll:1.65+0.15*s.v-0.25*(hbT-3.8)};}
+  if(g<0.19){const f=(g-0.18)/0.01;return {k:"giant",stage:"agb",lt:lerp(3.75,3.57,f)+s.dt,ll:lerp(1.8,3.35,f*f)};}
+  const tau=t-tm*1.19; // years since the outer layers were lost
+  if(tau<2e4) return {k:"pn",lt:lerp(3.6,5.0,tau/2e4),ll:3.4};
+  const c=Math.log10(1+tau/1e6);
+  return {k:"wd",lt:5.0-0.24*c,ll:0.6-1.1*c-0.3*s.v};
+}
+const STAGES={
+ pms:["Protostar settling","Still shrinking and heating up, sliding toward the main sequence. No hydrogen fusion yet."],
+ ms:["Main-sequence star","Calmly fusing hydrogen into helium in its core. This is where a star spends about 90% of its life."],
+ subgiant:["Subgiant","The core’s hydrogen is gone. The star starts to swell and cool: it is just leaving the main sequence at the turn-off."],
+ rgb:["Red giant","Swollen to dozens of times its old size, cool and red but very bright, climbing the red-giant branch."],
+ giant:["Red supergiant","A massive star that has run out of core hydrogen and puffed up enormously. It will explode soon."],
+ hb:["Helium-burning star (horizontal branch)","After the red-giant stage the core starts fusing helium. In old, metal-poor clusters these stars line up in a horizontal row."],
+ agb:["Giant again","Helium in the core is used up; the star swells into a giant one last time and starts shedding its outer layers."],
+ pn:["Planetary nebula","The outer layers drift away as a glowing shell, uncovering the very hot core."],
+ wd:["White dwarf","The leftover core: Earth-sized, no fusion, slowly cooling and fading at the bottom left."],
+ sn:["Supernova!","The core collapses and the star explodes. It leaves a neutron star or a black hole, which don’t appear on the H-R diagram."],
+ gone:["Exploded","This star died as a supernova. Its leftover neutron star or black hole gives off no ordinary starlight."]};
+
+/* ===================== make the cluster ===================== */
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const R=rng(11), N=5000, Mlo=0.15, Mhi=30, a=-2.0;   // more small stars than big ones (dN/dM ∝ M^-2)
+const STARS=[];
+for(let i=0;i<N;i++){const u=R();const M=Math.pow(Math.pow(Mlo,a+1)+u*(Math.pow(Mhi,a+1)-Math.pow(Mlo,a+1)),1/(a+1));
+  // position on the sky: a centrally concentrated (Plummer) ball
+  const rr=1/Math.sqrt(Math.pow(R(),-2/3)-1), th=R()*6.283;
+  STARS.push({M,dt:(R()-.5)*.012,dl:(R()-.5)*.1,u:R(),v:R(),sx:Math.cos(th)*rr,sy:Math.sin(th)*rr});}
+STARS.sort((p,q)=>p.M-q.M);
+
+/* ===================== drawing ===================== */
+const V={tMax:5.1,tMin:3.42,lMin:-4.2,lMax:6.4};
+let F=null, follow=null, cur=[];
+function frame(ctx,W,H){
+  const m={l:78,r:14,t:14,b:56},pw=W-m.l-m.r,ph=H-m.t-m.b;
+  const X=lt=>m.l+(V.tMax-lt)/(V.tMax-V.tMin)*pw, Y=ll=>m.t+(V.lMax-ll)/(V.lMax-V.lMin)*ph;
+  ctx.fillStyle="#050816";ctx.fillRect(0,0,W,H);
+  for(let i=0;i<pw;i+=2){ctx.fillStyle=tColor(Math.pow(10,V.tMax-i/pw*(V.tMax-V.tMin)),.9);ctx.fillRect(m.l+i,m.t+ph+3,2,6);}
+  ctx.strokeStyle="#141d45";ctx.font="12px system-ui,sans-serif";ctx.fillStyle="#aab3da";ctx.textAlign="center";ctx.textBaseline="top";
+  for(const T of [100000,40000,20000,10000,6000,4000]){const x=X(Math.log10(T));ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,m.t+ph);ctx.stroke();ctx.fillText(T.toLocaleString()+"°",x,m.t+ph+12);}
+  ctx.textAlign="right";ctx.textBaseline="middle";
+  for(let e=-4;e<=6;e+=2){const y=Y(e);ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(m.l+pw,y);ctx.stroke();ctx.fillText(e>=0?Number(10**e).toLocaleString():"1/"+Number(10**-e).toLocaleString(),m.l-6,y);}
+  ctx.strokeStyle="#2a3672";ctx.strokeRect(m.l,m.t,pw,ph);
+  ctx.fillStyle="#eef0fb";ctx.font="13px system-ui,sans-serif";ctx.textAlign="center";ctx.textBaseline="alphabetic";
+  ctx.fillText("← hotter, bluer        Surface temperature        cooler, redder →",m.l+pw/2,H-6);
+  ctx.save();ctx.translate(16,m.t+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText("Brightness (Sun = 1)",0,0);ctx.restore();
+  return {X,Y,m,pw,ph};
+}
+function label(ctx,txt,x,y,col){ctx.font="italic 14px Georgia,serif";ctx.fillStyle=col;ctx.textAlign="left";ctx.fillText(txt,x,y);}
+
+function draw(){
+  const age=Math.pow(10,+$("t").value);
+  const c=$("hr");const [ctx,W,H]=fit(c);F=frame(ctx,W,H);
+  ctx.save();ctx.beginPath();ctx.rect(F.m.l,F.m.t,F.pw,F.ph);ctx.clip();
+  if($("zams").checked){ctx.strokeStyle="rgba(255,207,107,.16)";ctx.lineWidth=18;ctx.lineCap="round";ctx.beginPath();
+    for(let lm=Math.log10(0.15);lm<=Math.log10(30);lm+=0.02){const M=10**lm,x=F.X(msLT(M)),y=F.Y(msLL(M));lm===Math.log10(0.15)?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();ctx.lineWidth=1;
+    label(ctx,"main sequence",F.X(3.66)+8,F.Y(-1.1),"rgba(255,207,107,.8)");}
+  const cnt={pms:0,ms:0,giant:0,hb:0,wd:0,sn:0};
+  cur=[];
+  for(const s of STARS){const p=state(s,age);cur.push(p);
+    if(p.k==="gone"||p.k==="sn"){cnt.sn++;}else cnt[p.k==="pn"?"wd":p.k]++;
+    if(p.k==="gone")continue;
+    const x=F.X(p.lt),y=F.Y(p.ll),T=10**p.lt;
+    if(p.k==="sn"){const r=10+40*p.boom;const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,"rgba(255,255,255,.95)");g.addColorStop(.4,"rgba(255,200,120,.6)");g.addColorStop(1,"rgba(255,90,200,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();continue;}
+    const r=p.k==="wd"?1.3:p.k==="ms"?Math.max(1.4,Math.min(4,1.6+0.9*Math.log10(s.M*5))):2.8;
+    ctx.fillStyle=tColor(T,p.k==="wd"?.55:p.k==="pms"?.8:.95);ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();}
+  // turn-off marker
+  const Mto=turnoffMass(age);
+  if(Mto<29 && age>3e5){const x=F.X(msLT(Mto)-0.03),y=F.Y(msLL(Mto)+0.3);
+    ctx.strokeStyle="#ff7fa0";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,14,0,7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-64,y-40);ctx.lineTo(x-12,y-8);ctx.stroke();ctx.lineWidth=1;
+    ctx.font="bold 14px system-ui,sans-serif";ctx.fillStyle="#ff7fa0";ctx.textAlign="right";ctx.fillText("turn-off point",x-66,y-44);}
+  // stage labels when those stages are populated
+  if(cnt.pms>40) label(ctx,"protostars sliding onto the main sequence",F.X(3.63),F.Y(1.9),"rgba(255,138,107,.85)");
+  if(cnt.giant>3&&age>2e8) label(ctx,"red-giant branch",F.X(3.72),F.Y(2.6),"rgba(255,155,91,.85)");
+  if(cnt.hb>2&&age>1e9) label(ctx,"horizontal branch",F.X(4.18),F.Y(2.15),"rgba(159,208,255,.9)");
+  if(cnt.wd>5) label(ctx,"white dwarfs",F.X(4.6),F.Y(-2.4),"rgba(207,228,255,.85)");
+  // followed star
+  if(follow!==null){const s=STARS[follow];
+    if($("trail").checked){ctx.strokeStyle="rgba(116,227,184,.85)";ctx.lineWidth=2;ctx.beginPath();let first=true;
+      const ts=[];for(let lg=5;lg<=Math.log10(age);lg+=0.004)ts.push(10**lg);
+      const tm=tMS(s.M);for(let k=0;k<=40;k++)ts.push(tm*(1.0+k*0.19/40));        // fill in the short giant phases
+      for(let k=0;k<=10;k++)ts.push(tm*1.19+k*2e3);                                 // and the brief planetary-nebula crossing
+      ts.filter(x=>x<=age).sort((p,q)=>p-q).some(tt=>{const p=state(s,tt);if(p.k==="gone"||p.k==="sn")return true;
+        const x=F.X(p.lt),y=F.Y(p.ll);first?ctx.moveTo(x,y):ctx.lineTo(x,y);first=false;return false;});
+      ctx.stroke();ctx.lineWidth=1;}
+    const p=cur[follow];if(p.k!=="gone"){const x=F.X(p.lt??3.56),y=F.Y(p.ll??0);ctx.strokeStyle="#74e3b8";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.stroke();ctx.lineWidth=1;}}
+  ctx.restore();
+  // readouts
+  $("age").textContent=fmtAge(age);
+  $("era").textContent=age<3e6?"· the cluster is being born":age<1e8?"· the brightest blue stars are dying":age<2e9?"· middle age":age<8e9?"· growing old":"· an ancient globular cluster";
+  $("cP").textContent=cnt.pms;$("cM").textContent=cnt.ms;$("cG").textContent=cnt.giant;$("cH").textContent=cnt.hb;$("cW").textContent=cnt.wd;$("cS").textContent=cnt.sn;
+  const type=Mto>16?"blue O":Mto>2.4?"blue-white B":Mto>1.4?"white A":Mto>1.04?"yellow-white F":Mto>0.8?"yellow G (Sun-like)":"orange K";
+  $("toBox").innerHTML= Mto>=29? "<b>No turn-off yet.</b> Even the heaviest stars are still young." :
+    `<b>Turn-off:</b> stars of about <b>${Mto<2?Mto.toFixed(2):Mto.toFixed(1)}</b> times the Sun’s mass, ${type} stars, are leaving the main sequence now. Everything heavier has already left.`;
+  drawSky(cur,age);
+  if(follow!==null) showFollow();
+}
+function drawSky(cur,age){
+  const c=$("sky");const [ctx,W,H]=fit(c);ctx.fillStyle="#03050f";ctx.fillRect(0,0,W,H);
+  const sc=Math.min(W,H)*0.12, cx=W/2, cy=H/2;
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,sc*2.5);g.addColorStop(0,"rgba(255,230,190,.10)");g.addColorStop(1,"transparent");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation="lighter";
+  cur.forEach((p,i)=>{if(p.k==="gone")return;const s=STARS[i],x=cx+s.sx*sc,y=cy+s.sy*sc;if(x<-20||x>W+20||y<-20||y>H+20)return;
+    if(p.k==="sn"){const r=6+30*p.boom;const gg=ctx.createRadialGradient(x,y,0,x,y,r);gg.addColorStop(0,"rgba(255,255,255,.9)");gg.addColorStop(1,"rgba(255,120,200,0)");ctx.fillStyle=gg;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();return;}
+    const L=Math.max(-3,p.ll), r=Math.max(.5,0.6+0.55*(L+2)), a=Math.min(1,0.15+0.17*(L+3));
+    ctx.fillStyle=tColor(10**p.lt,a);ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();});
+  ctx.globalCompositeOperation="source-over";
+  if(follow!==null&&cur[follow].k!=="gone"){const s=STARS[follow];ctx.strokeStyle="#74e3b8";ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx+s.sx*sc,cy+s.sy*sc,8,0,7);ctx.stroke();}
+  c._map={cx,cy,sc};
+}
+function showFollow(){const s=STARS[follow],p=cur[follow];const key=p.stage||p.k;const st=STAGES[key==="giant"&&s.M<8?"rgb":key];
+  $("follow").style.display="block";
+  $("fName").textContent=`Followed star: ${s.M<2?s.M.toFixed(2):s.M.toFixed(1)} × the Sun’s mass — ${st[0]}`;
+  const life=tMS(s.M);
+  $("fText").textContent=`${st[1]} Its main-sequence life lasts about ${fmtAge(life)}.`;}
+
+/* ===================== interaction ===================== */
+function pick(mx,my,fromSky){let best=null,bd=fromSky?100:81;
+  cur.forEach((p,i)=>{if(p.k==="gone")return;let x,y;
+    if(fromSky){const m=$("sky")._map,s=STARS[i];x=m.cx+s.sx*m.sc;y=m.cy+s.sy*m.sc;}else{x=F.X(p.lt);y=F.Y(p.ll);}
+    const d=(x-mx)**2+(y-my)**2;if(d<bd){bd=d;best=i;}});return best;}
+function rel(ev,c){const r=c.getBoundingClientRect();return [ev.clientX-r.left,ev.clientY-r.top];}
+$("hr").addEventListener("click",ev=>{const i=pick(...rel(ev,$("hr")),false);if(i!==null){follow=i;draw();}});
+$("sky").addEventListener("click",ev=>{const i=pick(...rel(ev,$("sky")),true);if(i!==null){follow=i;draw();}});
+$("hr").addEventListener("pointermove",ev=>{const [mx,my]=rel(ev,$("hr"));const i=pick(mx,my,false),tip=$("tipH");
+  if(i===null){tip.style.display="none";return;}const p=cur[i],s=STARS[i],key=p.stage||p.k,st=STAGES[key==="giant"&&s.M<8?"rgb":key];
+  tip.innerHTML=`${s.M<2?s.M.toFixed(2):s.M.toFixed(1)} × Sun’s mass · ${st[0]}<br><span style="color:#aab3da">click to follow this star</span>`;
+  tip.style.display="block";tip.style.left=Math.min(mx+14,$("hr").clientWidth-240)+"px";tip.style.top=(my+12)+"px";});
+$("hr").addEventListener("pointerleave",()=>$("tipH").style.display="none");
+$("t").addEventListener("input",draw);
+["zams","trail"].forEach(id=>$(id).addEventListener("change",draw));
+document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{stop();$("t").value=b.dataset.t;draw();});
+let playing=false,last=0;
+function stop(){playing=false;$("play").textContent="▶ Play";}
+function tick(now){if(!playing)return;const dt=Math.min(.05,(now-last)/1000);last=now;
+  let v=+$("t").value+dt*0.32*(+$("speed").value);if(v>=10.12){v=10.12;stop();$("play").textContent="↺ Play again";}
+  $("t").value=v;draw();if(playing)requestAnimationFrame(tick);}
+$("play").onclick=()=>{if(playing){stop();return;}if(+$("t").value>=10.11)$("t").value=5;playing=true;$("play").textContent="❚❚ Pause";last=performance.now();requestAnimationFrame(tick);};
+// follow a Sun-like star by default
+follow=STARS.reduce((b,s,i)=>Math.abs(s.M-1)<Math.abs(STARS[b].M-1)?i:b,0);
+draw();addEventListener("resize",draw);
+</script>
+</body>
+</html>
