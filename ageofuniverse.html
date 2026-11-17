@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How old is the universe? A Hubble’s law lab with real data</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1430; --panel:#161f45; --panel2:#1d2858; --ink:#e8ecff; --muted:#a6b0d8;
+  --line:#2c3a78; --blue:#6fb7ff; --red:#ff7a6b; --amber:#ffc65c; --mint:#6ff0c2; --violet:#c49bff;
+  --grid:rgba(166,176,216,.16);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3f5fc; --panel:#ffffff; --panel2:#e9edfb; --ink:#141a3a; --muted:#4a537c;
+    --line:#c9d0ee; --blue:#1f6fd1; --red:#d33c2c; --amber:#a86a00; --mint:#0b8f63; --violet:#7342c9;
+    --grid:rgba(20,26,58,.10); color-scheme:light;
+  }
+}
+:root[data-theme="dark"]{ color-scheme:dark; }
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;}
+.wrap{max-width:1080px;margin:0 auto;padding:2rem 1.25rem 4rem}
+h1,h2,h3{font-family:"Instrument Serif",Georgia,"Times New Roman",serif;font-weight:400;line-height:1.1;margin:0 0 .5rem}
+h1{font-size:clamp(2.4rem,6vw,4.2rem);max-width:16ch}
+h2{font-size:clamp(1.7rem,3.5vw,2.4rem);margin-top:3rem}
+h3{font-size:1.45rem;margin-top:1.5rem}
+p,li{max-width:72ch}
+.lede{font-size:1.15rem;color:var(--muted)}
+.spectrum{height:6px;border-radius:3px;margin:1.25rem 0 2rem;background:linear-gradient(90deg,#5a7dff,#6fd6ff,#7dffb0,#ffe066,#ff9a4d,#ff4d4d);}
+.lab{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:1.25rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:1.25rem}
+@media (max-width:820px){.lab{grid-template-columns:1fr}}
+canvas{width:100%;height:auto;display:block;border-radius:12px;background:var(--panel2);touch-action:none}
+.ctl label{display:block;font-weight:700;margin:.9rem 0 .3rem}
+.ctl input[type=text]{width:100%;padding:.55rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:inherit}
+.ctl input[type=range]{width:100%;accent-color:var(--amber)}
+.seg{display:flex;flex-wrap:wrap;gap:.4rem}
+.seg button,.btn{font:inherit;font-size:.95rem;padding:.45rem .8rem;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--blue);color:#06122e;border-color:var(--blue);font-weight:700}
+.btn.reveal{border-color:var(--mint);color:var(--mint)}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.readout{margin-top:1rem;padding:1rem;border-radius:14px;background:var(--panel2);border-left:5px solid var(--amber)}
+.readout .big{font-family:"Instrument Serif",Georgia,serif;font-size:2.6rem;line-height:1;color:var(--amber)}
+.readout .h{color:var(--blue);font-weight:700}
+.small{font-size:.9rem;color:var(--muted)}
+.fit{display:none;margin-top:.6rem;color:var(--mint)}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;position:relative;padding:.2rem 0 .9rem 3rem}
+.steps li::before{content:counter(s);position:absolute;left:0;top:.1rem;width:2.1rem;height:2.1rem;border-radius:50%;display:grid;place-items:center;background:var(--violet);color:#160a33;font-weight:700}
+.formula{font-family:"Instrument Serif",Georgia,serif;font-size:1.5rem;color:var(--mint);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.6rem 1rem;display:inline-block;margin:.3rem 0}
+.tables{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+@media (max-width:820px){.tables{grid-template-columns:1fr}}
+.tscroll{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{padding:.4rem .7rem;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+thead th{position:sticky;top:0;background:var(--panel2)}
+tbody tr.mine td{color:var(--amber);font-weight:700}
+textarea{width:100%;min-height:150px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:.6rem}
+.notes{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:1.25rem 1.5rem;margin-top:1rem}
+.notes table td,.notes table th{text-align:left}
+a{color:var(--blue)}
+.q li{margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>How old is the universe?</h1>
+<p class="lede">Real distances and speeds of 60 galaxies measured with the Hubble Space Telescope. Draw the line, read its slope, and turn it into an age.</p>
+<div class="spectrum" aria-hidden="true"></div>
+
+<h2 style="margin-top:0">Steps</h2>
+<ol class="steps">
+  <li>Type your data ID in the box on the right of the graph so you get your own sample. Write the ID on your worksheet.</li>
+  <li>Choose <em>Nearby (Cepheids)</em>. Move the slider until the line runs through the middle of the dots, with about as many above as below. Record H₀.</li>
+  <li>Choose <em>Distant (supernovae)</em> and do the same. Record H₀.</li>
+  <li>Hover over or tap any two galaxies on the graph to read their distance and speed. Calculate speed ÷ distance for each by hand. Compare with your slider value.</li>
+  <li>Calculate the age of the universe by hand for both of your H₀ values, using the steps in <em>Calculating the age</em> just below the graph. Show your work on the worksheet.</li>
+</ol>
+
+<section class="lab" aria-label="Hubble diagram lab">
+  <div>
+    <canvas id="plot" width="900" height="600" aria-label="Scatter plot of galaxy velocity versus distance with an adjustable line"></canvas>
+    <p class="small">Each dot is a galaxy. Color shows how fast it moves away: bluer is slower, redder is faster. Hover or tap a dot to see its name.</p>
+  </div>
+  <div class="ctl">
+    <label for="sid">Your data ID (first name + birthday MMDD)</label>
+    <input id="sid" type="text" placeholder="e.g. maya0412" autocomplete="off">
+    <div class="small">Your ID gives you a personal sample of 6 nearby galaxies and 12 distant supernovae.</div>
+
+    <label>Which galaxies?</label>
+    <div class="seg" role="group" aria-label="Dataset">
+      <button data-set="ceph" aria-pressed="false">Nearby (Cepheids)</button>
+      <button data-set="sn" aria-pressed="false">Distant (supernovae)</button>
+      <button data-set="both" aria-pressed="true">Both</button>
+    </div>
+
+    <label for="hs">Slope of your line, H₀</label>
+    <input id="hs" type="range" min="30" max="120" step="0.5" value="50">
+    <div class="readout" aria-live="polite">
+      <div class="small">Slope of your line</div>
+      <div class="big" id="hval">50.0</div>
+      <div>km/s per Mpc</div>
+      <div class="small" style="margin-top:.6rem">Record this value, then calculate the age yourself using the steps below the graph.</div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<h2>Calculating the age</h2>
+<p>The idea: a galaxy at distance <em>d</em> moving at speed <em>v</em> took time <em>d</em> ÷ <em>v</em> to get there. Since <em>v</em> = H₀ × <em>d</em>, that time is 1 ÷ H₀ for every galaxy. The only work is getting the units right.</p>
+<ol class="steps">
+  <li>Write down your H₀ from the slider, in km/s per Mpc. The example below uses a made-up value, H₀ = 100 km/s/Mpc. Use your own value.</li>
+  <li>Change megaparsecs to kilometers. One megaparsec is 3.086 × 10¹⁹ km, so H₀ = 100 km/s for every 3.086 × 10¹⁹ km.</li>
+  <li>Find the time in seconds: divide the distance by the speed. Example: 3.086 × 10¹⁹ km ÷ 100 km/s = 3.086 × 10¹⁷ seconds.</li>
+  <li>Change seconds to years. One year is 3.156 × 10⁷ seconds. Example: 3.086 × 10¹⁷ ÷ 3.156 × 10⁷ = 9.78 × 10⁹ years.</li>
+  <li>Write it in billions of years. Example: 9.78 × 10⁹ years = 9.78 billion years. Now repeat steps 1 to 5 with your own H₀.</li>
+</ol>
+<p>Check your arithmetic: steps 2 to 5 always combine into one number, so age in billions of years = 978 ÷ H₀. Example: 978 ÷ 100 = 9.78.</p>
+
+<h2>What you are doing</h2>
+<p>In 1929 Edwin Hubble noticed that the farther away a galaxy is, the faster it is moving away from us. If everything is flying apart at a steady rate, you can run the movie backward and ask: how long ago was everything in the same place?</p>
+<div class="formula">speed = H₀ × distance</div>
+<p>H₀ (“H-naught”) is the slope of the line. A galaxy 1 megaparsec away (about 3.26 million light-years) moves away at H₀ kilometers per second. The time since everything was together is distance ÷ speed, which is 1 ÷ H₀. With these units, that works out to <strong>978 ÷ H₀ billion years</strong>.</p>
+
+<h3>Questions to answer</h3>
+<ol class="q">
+  <li>Which set of galaxies gave the more consistent line, the nearby ones or the distant ones? Look at how much the dots wander from the line.</li>
+  <li>The galaxy NGC 3031 (also called M81) is close to us but barely moving away. Galaxies also move around inside their groups, like people milling around in a moving train. Why does that random motion matter more for nearby galaxies than for distant ones?</li>
+  <li>Your classmates had different samples. Why did everyone get slightly different ages? What does that tell you about scientific uncertainty?</li>
+  <li>The oldest stars we know of are roughly 12 to 13 billion years old. Is your age for the universe consistent with that? What would it mean if it were not?</li>
+  <li>Hubble’s own 1929 slope was about 500 km/s per Mpc. What age does that give? Why might that have bothered geologists, who already knew Earth was about 4.5 billion years old?</li>
+</ol>
+
+<h2>Instructor solutions</h2>
+<div class="notes" id="instr">
+  <p class="small">Password protected. Students do not need this section.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+    <input id="pw" type="password" placeholder="Password" autocomplete="off" aria-label="Instructor password" style="padding:.55rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:inherit">
+    <button class="btn" id="unlock">Unlock</button>
+    <span id="pwmsg" class="small" role="status"></span>
+  </div>
+  <div id="solbox"></div>
+</div>
+
+</div>
+
+<script>
+const CEPH=[["NGC0300", 2.0, 133], ["NGC0925", 9.16, 664], ["NGC1326A", 16.14, 1794], ["NGC1365", 17.95, 1594], ["NGC1425", 21.88, 1473], ["NGC2403", 3.22, 278], ["NGC2541", 11.22, 714], ["NGC2090", 11.75, 882], ["NGC3031", 3.63, 80], ["NGC3198", 13.8, 772], ["NGC3351", 10.0, 642], ["NGC3368", 10.52, 768], ["NGC3621", 6.64, 609], ["NGC4321", 15.21, 1433], ["NGC4414", 17.7, 619], ["NGC4496A", 14.86, 1424], ["NGC4548", 16.22, 1384], ["NGC4535", 15.78, 1444], ["NGC4536", 14.93, 1423], ["NGC4639", 21.98, 1403], ["NGC4725", 12.36, 1103], ["IC4182", 4.49, 318], ["NGC5253", 3.15, 232], ["NGC7331", 14.72, 999]];
+const SNIA=[["SN host 01", 134.7, 9065], ["SN host 02", 158.9, 12012], ["SN host 03", 198.6, 15055], ["SN host 04", 238.9, 16687], ["SN host 05", 117.1, 9801], ["SN host 06", 56.0, 4124], ["SN host 07", 183.9, 13707], ["SN host 08", 121.5, 7880], ["SN host 09", 274.6, 22426], ["SN host 10", 102.1, 7765], ["SN host 11", 58.0, 4227], ["SN host 12", 467.0, 30253], ["SN host 13", 262.2, 18212], ["SN host 14", 88.6, 5935], ["SN host 15", 151.4, 10696], ["SN host 16", 202.5, 13518], ["SN host 17", 235.9, 17371], ["SN host 18", 176.8, 12871], ["SN host 19", 77.9, 5434], ["SN host 20", 309.5, 23646], ["SN host 21", 391.5, 26318], ["SN host 22", 280.1, 18997], ["SN host 23", 303.4, 21190], ["SN host 24", 236.1, 15567], ["SN host 25", 215.4, 15002], ["SN host 26", 119.7, 8604], ["SN host 27", 202.3, 14764], ["SN host 28", 71.8, 5424], ["SN host 29", 96.7, 7241], ["SN host 30", 127.8, 8691], ["SN host 31", 66.8, 4847], ["SN host 32", 149.9, 10715], ["SN host 33", 185.6, 14634], ["SN host 34", 82.4, 6673], ["SN host 35", 136.0, 9024], ["SN host 36", 132.7, 10446]];
+
+const $=s=>document.querySelector(s);
+const cv=$('#plot'),ctx=cv.getContext('2d');
+let set='both',H=50,mine=null,showFit=false,hover=null,hasID=false;
+
+function hashStr(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function pick(n,k,r){const idx=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(r()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}return new Set(idx.slice(0,k));}
+function setID(v){
+  v=v.trim().toLowerCase().replace(/\s+/g,'');
+  hasID=!!v;
+  if(!v||v==='all'){mine=null;}else{const r=rng(hashStr(v));mine={c:pick(CEPH.length,6,r),s:pick(SNIA.length,12,r)};}
+  draw();
+}
+function points(){
+  if(!hasID)return [];
+  let p=[];
+  if(set!=='sn')CEPH.forEach((d,i)=>{if(!mine||mine.c.has(i))p.push({n:d[0],x:d[1],y:d[2],k:'c'})});
+  if(set!=='ceph')SNIA.forEach((d,i)=>{if(!mine||mine.s.has(i))p.push({n:d[0],x:d[1],y:d[2],k:'s'})});
+  return p;
+}
+function lsq(p){let sxy=0,sxx=0;p.forEach(q=>{sxy+=q.x*q.y;sxx+=q.x*q.x});const h=sxy/sxx;let rss=0;p.forEach(q=>{rss+=(q.y-h*q.x)**2});return{h,se:p.length>1?Math.sqrt(rss/(p.length-1)/sxx):0};}
+function nice(m){const e=Math.pow(10,Math.floor(Math.log10(m)));const f=m/e;return (f<=1?1:f<=2?2:f<=5?5:10)*e;}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function vcol(v,vmax){const t=Math.min(1,Math.sqrt(v/vmax));const hue=230-230*t;return `hsl(${hue},95%,62%)`;}
+let geom=null;
+function draw(){
+  const W=cv.clientWidth,Hh=Math.round(W*0.66),dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=Hh*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  const p=points();const L=56,R=16,T=18,B=52;
+  if(!p.length){geom=null;ctx.clearRect(0,0,W,Hh);ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='18px "Atkinson Hyperlegible",system-ui,sans-serif';ctx.fillText('Enter your data ID to see your galaxies',W/2,Hh/2);
+    $('#hval').textContent=H.toFixed(1);return;}
+  const xmax=nice(Math.max(...p.map(q=>q.x))*1.08),ymax=nice(Math.max(...p.map(q=>q.y))*1.08);
+  const X=x=>L+(W-L-R)*x/xmax,Y=y=>Hh-B-(Hh-T-B)*y/ymax;
+  geom={p,X,Y};
+  ctx.clearRect(0,0,W,Hh);
+  ctx.font='13px "Atkinson Hyperlegible",system-ui,sans-serif';ctx.fillStyle=css('--muted');ctx.strokeStyle=css('--grid');ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){const xv=xmax*i/5,yv=ymax*i/5;
+    ctx.beginPath();ctx.moveTo(X(xv),T);ctx.lineTo(X(xv),Hh-B);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(L,Y(yv));ctx.lineTo(W-R,Y(yv));ctx.stroke();
+    ctx.textAlign='center';ctx.fillText(+xv.toFixed(1),X(xv),Hh-B+18);
+    ctx.textAlign='right';ctx.fillText(yv>=1000?(yv/1000)+'k':yv,L-6,Y(yv)+4);}
+  ctx.textAlign='center';ctx.fillStyle=css('--ink');ctx.fillText('Distance (megaparsecs)',L+(W-L-R)/2,Hh-10);
+  ctx.save();ctx.translate(14,T+(Hh-T-B)/2);ctx.rotate(-Math.PI/2);ctx.fillText('Speed away from us (km/s)',0,0);ctx.restore();
+  // fit line
+  if(showFit){const f=lsq(p);ctx.setLineDash([6,6]);ctx.strokeStyle=css('--mint');ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(0),Y(0));const xe=Math.min(xmax,ymax/f.h);ctx.lineTo(X(xe),Y(f.h*xe));ctx.stroke();ctx.setLineDash([]);}
+  // user line
+  ctx.strokeStyle=css('--amber');ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(X(0),Y(0));const xe=Math.min(xmax,ymax/H);ctx.lineTo(X(xe),Y(H*xe));ctx.stroke();
+  // points
+  const vmax=Math.max(...p.map(q=>q.y));
+  p.forEach(q=>{ctx.beginPath();if(q.k==='c'){ctx.arc(X(q.x),Y(q.y),6,0,7);}else{const s=6.5;ctx.moveTo(X(q.x),Y(q.y)-s);ctx.lineTo(X(q.x)+s,Y(q.y));ctx.lineTo(X(q.x),Y(q.y)+s);ctx.lineTo(X(q.x)-s,Y(q.y));ctx.closePath();}
+    ctx.fillStyle=vcol(q.y,vmax);ctx.fill();ctx.strokeStyle=css('--bg');ctx.lineWidth=1.5;ctx.stroke();});
+  // legend
+  ctx.textAlign='left';ctx.fillStyle=css('--ink');let ly=T+14;
+  if(set!=='sn'){ctx.beginPath();ctx.arc(L+16,ly-4,5,0,7);ctx.fillStyle=css('--muted');ctx.fill();ctx.fillStyle=css('--ink');ctx.fillText('Cepheid galaxy',L+28,ly);ly+=20;}
+  if(set!=='ceph'){ctx.beginPath();ctx.moveTo(L+16,ly-10);ctx.lineTo(L+22,ly-4);ctx.lineTo(L+16,ly+2);ctx.lineTo(L+10,ly-4);ctx.closePath();ctx.fillStyle=css('--muted');ctx.fill();ctx.fillStyle=css('--ink');ctx.fillText('Supernova host',L+28,ly);}
+  if(hover){const q=hover;const txt=`${q.n}: ${q.x} Mpc, ${q.y} km/s`;const w=ctx.measureText(txt).width+16;let bx=Math.min(X(q.x)+10,W-w-4),by=Y(q.y)-34;if(by<4)by=Y(q.y)+12;
+    ctx.fillStyle=css('--panel');ctx.strokeStyle=css('--line');ctx.beginPath();ctx.roundRect?ctx.roundRect(bx,by,w,24,6):ctx.rect(bx,by,w,24);ctx.fill();ctx.stroke();ctx.fillStyle=css('--ink');ctx.fillText(txt,bx+8,by+16);}
+  // readouts
+  $('#hval').textContent=H.toFixed(1);
+}
+function fillTables(){
+  const row=(d,m)=>`<tr class="${m?'mine':''}"><td>${d[0]}</td><td>${d[1]}</td><td>${d[2]}</td></tr>`;
+  $('#tc tbody').innerHTML=CEPH.map((d,i)=>row(d,mine&&mine.c.has(i))).join('');
+  $('#ts tbody').innerHTML=SNIA.map((d,i)=>row(d,mine&&mine.s.has(i))).join('');
+  const csv=(arr,h,sel)=>h+'\n'+arr.filter((d,i)=>!sel||sel.has(i)).map(d=>d.join(',')).join('\n');
+  $('#csvc').value=csv(CEPH,'galaxy,distance_Mpc,velocity_km_s',mine&&mine.c);
+  $('#csvs').value=csv(SNIA,'host,distance_Mpc,velocity_km_s',mine&&mine.s);
+}
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{set=b.dataset.set;document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));hover=null;draw();}));
+$('#hs').addEventListener('input',e=>{H=+e.target.value;draw();});
+$('#sid').addEventListener('input',e=>setID(e.target.value));
+function near(ev){if(!geom)return null;const r=cv.getBoundingClientRect();const mx=ev.clientX-r.left,my=ev.clientY-r.top;let best=null,bd=14;geom.p.forEach(q=>{const d=Math.hypot(geom.X(q.x)-mx,geom.Y(q.y)-my);if(d<bd){bd=d;best=q;}});return best;}
+cv.addEventListener('pointermove',e=>{const n=near(e);if(n!==hover){hover=n;draw();}});
+cv.addEventListener('pointerdown',e=>{hover=near(e);draw();});
+cv.addEventListener('pointerleave',()=>{hover=null;draw();});
+window.addEventListener('resize',draw);
+if(window.matchMedia)matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',draw);
+draw();
+document.fonts&&document.fonts.ready.then(draw);
+
+const ENC={"s": "Jmu/DZiKvM1Nvej9qfs0xA==", "iv": "8x9BCQEW1AX2BIOy", "it": 250000, "ct": "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"};
+(function(){
+ const b=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+ async function unlock(){
+  const msg=document.getElementById('pwmsg');msg.textContent='Checking…';
+  try{
+   const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(document.getElementById('pw').value),'PBKDF2',false,['deriveKey']);
+   const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b(ENC.s),iterations:ENC.it,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['decrypt']);
+   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b(ENC.iv)},key,b(ENC.ct));
+   const sol=JSON.parse(new TextDecoder().decode(pt));
+   document.getElementById('solbox').innerHTML=sol.html;
+   new Function(sol.js)();
+   msg.textContent='Unlocked.';document.getElementById('pw').value='';
+  }catch(e){msg.textContent='Wrong password. Try again.';}
+ }
+ document.getElementById('unlock').addEventListener('click',unlock);
+ document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')unlock();});
+})();
+</script>
+</body>
+</html>
