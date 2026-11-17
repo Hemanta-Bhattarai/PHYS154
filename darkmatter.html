@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weighing the invisible: dark matter and galaxy rotation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b1026;--panel:#141b3d;--panel2:#1b2452;--ink:#eaeeff;--muted:#a4add6;--line:#2b3874;
+  --star:#ffd84a;--hi:#5fb0ff;--dm:#c08bff;--vis:#b9c0d8;--fit:#ffffff;--good:#5df2b0;--bad:#ff7a6b;--warn:#ffc65c;
+  --grid:rgba(164,173,214,.14);color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f3f5fc;--panel:#fff;--panel2:#e9edfb;--ink:#141a3a;--muted:#4a537c;--line:#c9d0ee;
+  --star:#b98a00;--hi:#1f6fd1;--dm:#7a3fd1;--vis:#5a6383;--fit:#141a3a;--good:#0b8f63;--bad:#d33c2c;--warn:#a86a00;
+  --grid:rgba(20,26,58,.10);color-scheme:light;}}
+:root[data-theme="dark"]{color-scheme:dark}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:2rem 1.25rem 4rem}
+h1,h2{font-family:"Instrument Serif",Georgia,"Times New Roman",serif;font-weight:400;line-height:1.1;margin:0 0 .5rem}
+h1{font-size:clamp(2.3rem,5.5vw,4rem);max-width:18ch}
+h2{font-size:clamp(1.6rem,3.2vw,2.2rem);margin-top:2.5rem}
+p,li{max-width:72ch}
+.lede{color:var(--muted);font-size:1.12rem;margin-bottom:1.5rem}
+.lab{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(270px,1fr);gap:1.25rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:1.25rem}
+@media (max-width:860px){.lab{grid-template-columns:1fr}}
+canvas{width:100%;display:block;border-radius:12px;background:var(--panel2);touch-action:none}
+label.big{display:block;font-weight:700;margin:.2rem 0 .35rem}
+input[type=range]{width:100%;accent-color:var(--dm)}
+.val{font-family:"Instrument Serif",Georgia,serif;font-size:2.4rem;line-height:1;color:var(--dm)}
+.meter{margin:1rem 0;padding:.9rem 1rem;border-radius:14px;background:var(--panel2);border-left:6px solid var(--muted)}
+.meter .q{font-size:1.4rem;font-family:"Instrument Serif",Georgia,serif}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin-top:.5rem}
+.bar>div{height:100%;width:0;transition:width .15s}
+.chk{display:flex;gap:.5rem;align-items:center;margin:.35rem 0}
+.chk input{accent-color:var(--dm);width:1.1rem;height:1.1rem}
+.sw{display:inline-block;width:26px;height:0;border-top:3px solid;vertical-align:middle}
+.btn{font:inherit;font-size:.95rem;padding:.5rem .9rem;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer;margin-top:.6rem}
+button:focus-visible,input:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.small{font-size:.9rem;color:var(--muted)}
+.mass{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.8rem}
+.mass div{background:var(--panel2);border-radius:12px;padding:.6rem .7rem}
+.mass b{display:block;font-size:1.15rem}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;position:relative;padding:.15rem 0 .8rem 3rem}
+.steps li::before{content:counter(s);position:absolute;left:0;top:.05rem;width:2.1rem;height:2.1rem;border-radius:50%;display:grid;place-items:center;background:var(--dm);color:#1a0b33;font-weight:700}
+.formula{font-family:"Instrument Serif",Georgia,serif;font-size:1.45rem;color:var(--good);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.5rem 1rem;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Weighing the invisible</h1>
+<p class="lede">Stars far from a galaxy’s center orbit much faster than the visible stars and gas can explain. Add dark matter until the model curve matches what telescopes measure.</p>
+
+<section class="lab" aria-label="Rotation curve simulation">
+  <div>
+    <canvas id="plot" aria-label="Orbital speed versus distance from the galaxy center, with measurements and a model curve"></canvas>
+    <p class="small"><span style="color:var(--star)">●</span> Speeds measured from starlight &nbsp; <span style="color:var(--hi)">●</span> Speeds measured from 21 cm radio waves of hydrogen gas. Bars show the measurement uncertainty. Hover or tap a point for its value.</p>
+  </div>
+  <div>
+    <label class="big" for="dm">Amount of dark matter</label>
+    <input id="dm" type="range" min="0" max="30" step="0.1" value="0">
+    <div><span class="val" id="dmval">0.0</span> × the visible mass</div>
+    <div class="small">Measured inside 50,000 light-years of the center.</div>
+
+    <div class="meter" id="meter" aria-live="polite">
+      <div class="small">How well the model matches the data</div>
+      <div class="q" id="quality">—</div>
+      <div class="bar"><div id="qbar"></div></div>
+    </div>
+
+    <div class="chk"><input type="checkbox" id="showVis" checked><label for="showVis"><span class="sw" style="border-color:var(--vis);border-top-style:dashed"></span> Visible stars and gas only</label></div>
+    <div class="chk"><input type="checkbox" id="showDM" checked><label for="showDM"><span class="sw" style="border-color:var(--dm);border-top-style:dotted"></span> Dark matter only</label></div>
+    <div class="chk"><input type="checkbox" checked disabled><label><span class="sw" style="border-color:var(--fit)"></span> Total (your model)</label></div>
+
+    <div class="mass">
+      <div><span class="small">Visible mass</span><b id="mvis">—</b><span class="small">billion Suns</span></div>
+      <div><span class="small">Total mass</span><b id="mtot">—</b><span class="small">billion Suns</span></div>
+    </div>
+    <button class="btn" id="newgal">Try a mystery galaxy</button>
+    <button class="btn" id="reset" hidden>Back to the M33-like galaxy</button>
+  </div>
+</section>
+
+<h2>How to use it</h2>
+<ol class="steps">
+  <li>Start with the slider at 0. The white curve shows how fast stars would orbit if the galaxy contained only the stars and gas we can see. Notice where it misses the data.</li>
+  <li>Slowly add dark matter. Watch which part of the curve changes most: the inner galaxy or the outer edge.</li>
+  <li>Stop when the white curve passes through as many error bars as possible and the match meter reads “great fit.” Record the amount of dark matter.</li>
+  <li>Press <em>Try a mystery galaxy</em> and repeat. Each mystery galaxy has a different amount of dark matter for you to find.</li>
+</ol>
+
+<h2>The physics in one line</h2>
+<p>A star in a circular orbit needs gravity to pull it around. More mass inside the orbit means a stronger pull and a faster orbit:</p>
+<div class="formula">speed² = G × (mass inside the orbit) ÷ distance</div>
+<p>If almost all the mass were in the bright center, speeds would drop with distance, the way outer planets orbit the Sun more slowly. Instead the speeds stay high far past where the light fades, so the mass keeps growing where we see almost nothing. That unseen mass is dark matter.</p>
+</div>
+
+<script>
+function I0(x){const ax=Math.abs(x);let y;if(ax<3.75){y=(x/3.75)**2;return 1+y*(3.5156229+y*(3.0899424+y*(1.2067492+y*(0.2659732+y*(0.0360768+y*0.0045813)))));}y=3.75/ax;return Math.exp(ax)/Math.sqrt(ax)*(0.39894228+y*(0.01328592+y*(0.00225319+y*(-0.00157565+y*(0.00916281+y*(-0.02057706+y*(0.02635537+y*(-0.01647633+y*0.00392377))))))));}
+function I1(x){const ax=Math.abs(x);let y,a;if(ax<3.75){y=(x/3.75)**2;return ax*(0.5+y*(0.87890594+y*(0.51498869+y*(0.15084934+y*(0.02658733+y*(0.00301532+y*0.00032411))))));}y=3.75/ax;a=0.02282967+y*(-0.02895312+y*(0.01787654-y*0.00420059));a=0.39894228+y*(-0.03988024+y*(-0.00362018+y*(0.00163801+y*(-0.01031555+y*a))));return a*Math.exp(ax)/Math.sqrt(ax);}
+function K0(x){let y;if(x<=2){y=x*x/4;return -Math.log(x/2)*I0(x)+(-0.57721566+y*(0.4227842+y*(0.23069756+y*(0.0348859+y*(0.00262698+y*(0.0001075+y*0.0000074))))));}y=2/x;return Math.exp(-x)/Math.sqrt(x)*(1.25331414+y*(-0.07832358+y*(0.02189568+y*(-0.01062446+y*(0.00587872+y*(-0.0025154+y*0.00053208))))));}
+function K1(x){let y;if(x<=2){y=x*x/4;return Math.log(x/2)*I1(x)+(1/x)*(1+y*(0.15443144+y*(-0.67278579+y*(-0.18156897+y*(-0.01919402+y*(-0.00110404+y*(-0.00004686)))))));}y=2/x;return Math.exp(-x)/Math.sqrt(x)*(1.25331414+y*(0.23498619+y*(-0.0365562+y*(0.01504268+y*(-0.00780353+y*(0.00325614+y*(-0.00068245)))))));}
+
+const $=s=>document.querySelector(s);
+const cv=$('#plot'),ctx=cv.getContext('2d');
+const RMAX=52000, LY=9.461e15, G=6.674e-11, MSUN=1.989e30;
+// galaxy model: exponential disk (Freeman 1970) + pseudo-isothermal halo
+const fdisk=y=>y*y*(I0(y)*K0(y)-I1(y)*K1(y));
+let gal, data, dmRatio=0, hover=null;
+function makeGal(o){
+  const g=Object.assign({Rd:4000,Vpk:70,rc:10000,ratio:13.6,seed:7},o);
+  let m=0;for(let y=0.01;y<4;y+=0.002)m=Math.max(m,fdisk(y));g.fmax=m;
+  g.vd=r=>g.Vpk*Math.sqrt(Math.max(0,fdisk(r/(2*g.Rd)))/g.fmax);
+  g.shape=r=>1-(g.rc/r)*Math.atan(r/g.rc);
+  g.vd50=g.vd(50000);
+  g.vh=(r,ratio)=>Math.sqrt(ratio*g.vd50*g.vd50/g.shape(50000)*g.shape(r));
+  g.v=(r,ratio)=>Math.hypot(g.vd(r),g.vh(r,ratio));
+  return g;
+}
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function gauss(r){let u=0,v=0;while(!u)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function makeData(g){
+  const r=rng(g.seed),pts=[];
+  for(let i=0;i<12;i++){const x=1500+i*1180;const e=2.5+r()*2;pts.push({x,y:g.v(x,g.ratio)+gauss(r)*e*0.8,e,k:'s'});}
+  for(let i=0;i<9;i++){const x=18000+i*4000;const e=3+i*0.9+r()*1.5;pts.push({x,y:g.v(x,g.ratio)+gauss(r)*e*0.8,e,k:'h'});}
+  return pts;
+}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+let geom=null;
+function draw(){
+  const W=cv.clientWidth,H=Math.round(W*0.62),dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+  const L=58,R=16,T=16,B=54;
+  const vmaxData=Math.max(...data.map(p=>p.y+p.e)), vmaxModel=gal.v(RMAX,dmRatio);
+  const ymax=Math.max(140,Math.ceil(Math.max(vmaxData,vmaxModel)/20)*20+10);
+  const X=x=>L+(W-L-R)*x/RMAX, Y=y=>H-B-(H-T-B)*y/ymax;
+  geom={X,Y};
+  ctx.clearRect(0,0,W,H);
+  ctx.font='13px "Atkinson Hyperlegible",system-ui,sans-serif';ctx.lineWidth=1;
+  for(let x=0;x<=50000;x+=10000){ctx.strokeStyle=css('--grid');ctx.beginPath();ctx.moveTo(X(x),T);ctx.lineTo(X(x),H-B);ctx.stroke();ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.fillText(x.toLocaleString(),X(x),H-B+18);}
+  for(let y=0;y<=ymax;y+=20){ctx.strokeStyle=css('--grid');ctx.beginPath();ctx.moveTo(L,Y(y));ctx.lineTo(W-R,Y(y));ctx.stroke();ctx.fillStyle=css('--muted');ctx.textAlign='right';ctx.fillText(y,L-7,Y(y)+4);}
+  ctx.fillStyle=css('--ink');ctx.textAlign='center';ctx.fillText('Distance from the galaxy center (light-years)',L+(W-L-R)/2,H-12);
+  ctx.save();ctx.translate(15,T+(H-T-B)/2);ctx.rotate(-Math.PI/2);ctx.fillText('Orbital speed (km/s)',0,0);ctx.restore();
+  const curve=(fn,color,dash,width)=>{ctx.strokeStyle=color;ctx.setLineDash(dash);ctx.lineWidth=width;ctx.beginPath();for(let i=0;i<=300;i++){const x=200+(RMAX-200)*i/300;const y=fn(x);i?ctx.lineTo(X(x),Y(y)):ctx.moveTo(X(x),Y(y));}ctx.stroke();ctx.setLineDash([]);};
+  if($('#showVis').checked)curve(x=>gal.vd(x),css('--vis'),[10,7],2.2);
+  if($('#showDM').checked&&dmRatio>0)curve(x=>gal.vh(x,dmRatio),css('--dm'),[2,5],2.6);
+  curve(x=>gal.v(x,dmRatio),css('--fit'),[],3);
+  data.forEach(p=>{const c=p.k==='s'?css('--star'):css('--hi');ctx.strokeStyle=c;ctx.fillStyle=c;ctx.lineWidth=1.8;
+    ctx.beginPath();ctx.moveTo(X(p.x),Y(p.y-p.e));ctx.lineTo(X(p.x),Y(p.y+p.e));
+    ctx.moveTo(X(p.x)-4,Y(p.y-p.e));ctx.lineTo(X(p.x)+4,Y(p.y-p.e));ctx.moveTo(X(p.x)-4,Y(p.y+p.e));ctx.lineTo(X(p.x)+4,Y(p.y+p.e));ctx.stroke();
+    ctx.beginPath();ctx.arc(X(p.x),Y(p.y),5.5,0,7);ctx.fill();});
+  if(hover){const t=`${Math.round(hover.x).toLocaleString()} ly: ${hover.y.toFixed(0)} ± ${hover.e.toFixed(0)} km/s`;const w=ctx.measureText(t).width+16;
+    let bx=Math.min(X(hover.x)+10,W-w-4),by=Y(hover.y)-36;if(by<4)by=Y(hover.y)+12;
+    ctx.fillStyle=css('--panel');ctx.strokeStyle=css('--line');ctx.lineWidth=1;ctx.beginPath();ctx.roundRect?ctx.roundRect(bx,by,w,24,6):ctx.rect(bx,by,w,24);ctx.fill();ctx.stroke();
+    ctx.fillStyle=css('--ink');ctx.textAlign='left';ctx.fillText(t,bx+8,by+16);}
+  update();
+}
+function update(){
+  $('#dmval').textContent=dmRatio.toFixed(1);
+  let chi=0;data.forEach(p=>{chi+=((p.y-gal.v(p.x,dmRatio))/p.e)**2});chi/=data.length;
+  let label,col,pct;
+  if(chi<1.6){label='Great fit';col=css('--good');}else if(chi<4){label='Close';col=css('--warn');}else if(chi<15){label='Not yet';col=css('--warn');}else{label='Way off';col=css('--bad');}
+  pct=Math.max(4,Math.min(100,100*(1-Math.log10(chi)/2.5)));
+  $('#quality').textContent=label;$('#quality').style.color=col;$('#meter').style.borderLeftColor=col;
+  const bar=$('#qbar');bar.style.width=pct+'%';bar.style.background=col;
+  const r=50000*LY; // meters
+  const mass=v=>(v*1000)**2*r/G/MSUN/1e9;
+  $('#mvis').textContent=mass(gal.vd50).toFixed(1);
+  $('#mtot').textContent=mass(gal.v(50000,dmRatio)).toFixed(1);
+}
+function load(o){gal=makeGal(o);data=makeData(gal);hover=null;draw();}
+$('#dm').addEventListener('input',e=>{dmRatio=+e.target.value;draw();});
+$('#showVis').addEventListener('change',draw);$('#showDM').addEventListener('change',draw);
+$('#newgal').addEventListener('click',()=>{const r=Math.random;
+  load({Rd:2500+r()*3500,Vpk:50+r()*45,rc:6000+r()*10000,ratio:3+r()*22,seed:Math.floor(r()*1e9)});
+  $('#reset').hidden=false;$('#newgal').textContent='Try another mystery galaxy';});
+$('#reset').addEventListener('click',()=>{load({});$('#reset').hidden=true;$('#newgal').textContent='Try a mystery galaxy';});
+function near(e){const b=cv.getBoundingClientRect(),mx=e.clientX-b.left,my=e.clientY-b.top;let best=null,bd=14;data.forEach(p=>{const d=Math.hypot(geom.X(p.x)-mx,geom.Y(p.y)-my);if(d<bd){bd=d;best=p}});return best;}
+cv.addEventListener('pointermove',e=>{const n=near(e);if(n!==hover){hover=n;draw();}});
+cv.addEventListener('pointerdown',e=>{hover=near(e);draw();});
+cv.addEventListener('pointerleave',()=>{hover=null;draw();});
+window.addEventListener('resize',draw);
+matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',draw);
+load({});
+document.fonts&&document.fonts.ready.then(draw);
+</script>
+</body>
+</html>
